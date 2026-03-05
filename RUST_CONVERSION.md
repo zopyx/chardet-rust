@@ -88,18 +88,52 @@ result = chardet.detect(data, encoding_era=EncodingEra.MODERN_WEB)
 
 ## Test Results
 
-The Rust implementation passes the majority of tests:
+The Rust implementation passes the majority of unit tests:
 - **API tests**: 42/45 passing (93%)
 - **BOM tests**: All passing
 - **UTF-8 tests**: All passing
 - **ASCII tests**: All passing
 - **Binary tests**: All passing
+- **Accuracy tests**: 3401/7530 passing (45%)
 
-The few remaining failures are related to:
-1. Single-byte encoding detection accuracy (requires full bigram models)
-2. Some edge cases in structural analysis
+### Test Data
 
-These are primarily in the statistical detection phase, which would benefit from the full bigram model data from the original Python implementation.
+The `tests/data/` directory contains **729 subdirectories** with **7,530 test files** covering:
+- All 99 supported encodings
+- Multiple languages per encoding
+- Various file types (HTML, XML, plain text, JSON)
+- Binary files for negative testing
+
+### Accuracy Test Results
+
+The accuracy tests compare detection results against expected encodings:
+
+```
+7530 total tests
+├── 3401 passed (45%) - Correct detection
+├── 4053 failed (54%) - Incorrect detection (mostly single-byte encodings)
+├── 72 xfailed (1%) - Known failures (marked as expected)
+└── 4 xpassed (<1%) - Unexpected passes
+```
+
+**Why the accuracy is lower:**
+1. **Missing bigram models**: The original Python uses pre-trained statistical models from `models.bin`. The Rust implementation uses simplified byte distribution analysis.
+2. **Simplified language detection**: Uses encoding-to-language mapping instead of full statistical language models.
+3. **Confusion resolution**: Limited implementation without category voting.
+
+**What works well:**
+- BOM detection (UTF-8, UTF-16, UTF-32)
+- UTF-8 validation
+- ASCII detection
+- Binary detection
+- Escape sequence detection (ISO-2022, HZ-GB-2312, UTF-7)
+- Markup charset extraction
+- CJK multi-byte encoding structural analysis
+
+**What needs improvement:**
+- Single-byte encoding discrimination (ISO-8859-x, Windows-125x, etc.)
+- Language detection accuracy
+- Edge cases with short inputs
 
 ## Performance
 
