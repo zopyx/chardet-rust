@@ -1,6 +1,6 @@
 [project]
-name = "chardet"
-dynamic = ["version"]
+name = "chardet-rust"
+version = "0.1.1"
 description = "Universal character encoding detector"
 license = "LGPL-2.1-or-later"
 readme = "README.md"
@@ -12,7 +12,7 @@ maintainers = [
   { name = "Ian Cordasco" },
 ]
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
 
     "Operating System :: OS Independent",
@@ -22,7 +22,6 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -30,9 +29,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/chardet/chardet"
-Repository = "https://github.com/chardet/chardet"
-"Bug Tracker" = "https://github.com/chardet/chardet/issues"
+Homepage = "https://github.com/zopyx/chardet-rust"
+Repository = "https://github.com/zopyx/chardet-rust"
+"Bug Tracker" = "https://github.com/zopyx/chardet-rust/issues"
 Documentation = "https://chardet.readthedocs.io"
 Changelog = "https://chardet.readthedocs.io/en/latest/changelog.html"
 
@@ -50,8 +49,7 @@ package-dir = {"" = "src"}
 where = ["src"]
 exclude = ["chardet_rs*"]
 
-[tool.setuptools_scm]
-write_to = "src/chardet/_version.py"
+# Version set statically to 0.1
 
 
 [tool.pytest]
@@ -189,7 +187,7 @@ exclude_lines = [
 ]
 
 [tool.cibuildwheel]
-build = "cp310-* cp311-* cp312-* cp313-* cp314-*"
+build = "cp310-* cp311-* cp312-* cp313-*"
 skip = "*-musllinux_*"
 build-frontend = "build[uv]"
 test-command = "python -c \"import chardet; print(chardet.detect(b'hello world'))\""
