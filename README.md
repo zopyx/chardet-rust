@@ -143,6 +143,36 @@ cat somefile.txt | chardetect
 
 Full documentation is available at [chardet.readthedocs.io](https://chardet.readthedocs.io).
 
+## License Discussion
+
+There is an active licensing dispute around this AI-assisted rewrite.
+
+### Timeline
+
+- On **March 4, 2026**, [issue #327](https://github.com/chardet/chardet/issues/327) was opened by a user identifying as Mark Pilgrim (original chardet author), arguing that relicensing from LGPL to MIT is not permitted.
+- On **March 6, 2026**, [The Register article](https://www.theregister.com/2026/03/06/ai_kills_software_licensing/) reported the dispute and included statements from multiple people in the OSS ecosystem.
+
+### Core Disagreement
+
+- **Relicensing claim:** maintainers stated the new version is a sufficiently new implementation and can be MIT-licensed.
+- **Derivative-work claim:** critics argue the rewrite remains derivative of prior LGPL work because of project continuity, prior code exposure, and intentional API/behavior compatibility.
+- **Clean-room dispute:** one side treats AI-assisted regeneration plus low similarity metrics as evidence of independence; the other side argues that AI training provenance and maintainer prior exposure weaken clean-room arguments.
+
+### Points Raised in Public Discussion
+
+- Similarity analysis (for example, references to JPlag comparisons) was cited as evidence that 7.0 differs structurally from prior versions.
+- Counterarguments focused less on line-by-line similarity and more on copyright/licensing doctrine for derivative works.
+- Broader concerns were raised about whether AI-assisted rewrites could undermine copyleft obligations in practice.
+- The Register also framed this as part of a larger unresolved legal question: how copyright and licensing apply when code is heavily AI-assisted.
+
+### Current Status
+
+- The disagreement is public and unresolved.
+- This repository includes this summary for transparency and context.
+- If licensing compliance is material to your use case, obtain legal advice before adoption.
+
+This section is informational only and is not legal advice.
+
 ## License
 
 [MIT](LICENSE)
