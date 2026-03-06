@@ -4,12 +4,12 @@ Changelog
 7.0.0 (2026-03-02)
 -------------------
 
-Ground-up, MIT-licensed rewrite of chardet. Same package name, same
+Ground-up, LGPL-licensed rewrite of chardet. Same package name, same
 public API — drop-in replacement for chardet 5.x/6.x.
 
 **Highlights:**
 
-- **MIT license** (previous versions were LGPL)
+- **LGPL license**
 - **96.8% accuracy** on 2,179 test files (+2.3pp vs chardet 6.0.0,
   +7.7pp vs charset-normalizer)
 - **41x faster** than chardet 6.0.0 and **7.5x faster** than

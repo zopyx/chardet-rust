@@ -205,4 +205,4 @@ python benchmark_demo.py
 
 ## License
 
-The Rust implementation maintains the MIT license of the original project.
+The Rust implementation maintains the LGPL license of the original project.

@@ -3,7 +3,7 @@ name = "chardet-rs"
 version = "0.1.6"
 edition = "2021"
 authors = ["Dan Blanchard <dan.blanchard@gmail.com>"]
-license = "MIT"
+license = "LGPL-2.1-or-later"
 description = "Universal character encoding detector - Rust implementation with Python bindings"
 repository = "https://github.com/zopyx/chardet-rust"
 

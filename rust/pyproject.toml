@@ -7,12 +7,12 @@ name = "chardet-rs"
 version = "0.1.6"
 description = "Universal character encoding detector - Rust implementation"
 # readme = "README.md"
-license = {text = "MIT"}
+license = {text = "LGPL-2.1-or-later"}
 requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Rust",

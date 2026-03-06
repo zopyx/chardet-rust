@@ -2,7 +2,7 @@
 
 Universal character encoding detector — Rust-powered fork of [chardet 7.0](https://github.com/chardet/chardet).
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License: LGPL--2.1--or--later](https://img.shields.io/badge/License-LGPL--2.1--or--later-blue.svg)](LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/chardet-rust)](https://pypi.org/project/chardet-rust/)
 
 > [!NOTE]
@@ -15,7 +15,7 @@ Universal character encoding detector — Rust-powered fork of [chardet 7.0](htt
 ## Performance (from upstream chardet 7.0)
 
 **98.1% accuracy** on 2,510 test files. **43x faster** than chardet 6.0.0
-and **6.8x faster** than charset-normalizer. **Language detection** for every result. **MIT licensed.**
+and **6.8x faster** than charset-normalizer. **Language detection** for every result. **LGPL licensed.**
 
 |                        | chardet 7.0 (Rust core) | chardet 6.0.0 | [charset-normalizer] |
 | ---------------------- | :----------------------: | :-----------: | :------------------: |
@@ -26,7 +26,7 @@ and **6.8x faster** than charset-normalizer. **Language detection** for every re
 | Streaming detection    |          **yes**         |      yes      |          no          |
 | Encoding era filtering |          **yes**         |      no       |          no          |
 | Supported encodings    |            99            |      84       |          99          |
-| License                |            MIT           |     LGPL      |         MIT          |
+| License                |           LGPL           |     LGPL      |         MIT          |
 
 [charset-normalizer]: https://github.com/jawah/charset_normalizer
 

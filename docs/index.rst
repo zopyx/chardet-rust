@@ -12,7 +12,7 @@ byte strings and returns the detected encoding, confidence score, and language.
    print(result)
    # {'encoding': 'utf-8', 'confidence': 0.99, 'language': 'es'}
 
-chardet 7.0 is a ground-up, MIT-licensed rewrite — same package name, same
+chardet 7.0 is a ground-up, LGPL-licensed rewrite — same package name, same
 public API, drop-in replacement for chardet 5.x/6.x. The detector core is
 implemented in Rust and exposed to Python via PyO3. Python 3.10+.
 
