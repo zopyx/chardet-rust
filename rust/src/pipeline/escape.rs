@@ -7,20 +7,20 @@ pub fn detect_escape_encoding(data: &[u8]) -> Option<DetectionResult> {
     let has_esc = data.contains(&0x1B);
     let has_tilde = data.contains(&b'~');
     let has_plus = data.contains(&b'+');
-    
+
     if !has_esc && !has_tilde && !has_plus {
         return None;
     }
-    
+
     // ISO-2022-JP family: check for base ESC sequences, then classify variant.
     if has_esc {
         // Check for JIS X 0208 sequences
-        if contains_subsequence(data, b"\x1b$B") || 
-           contains_subsequence(data, b"\x1b$@") ||
-           contains_subsequence(data, b"\x1b(J") {
+        if contains_subsequence(data, b"\x1b$B")
+            || contains_subsequence(data, b"\x1b$@")
+            || contains_subsequence(data, b"\x1b(J")
+        {
             // JIS X 0213 designation -> modern Japanese branch
-            if contains_subsequence(data, b"\x1b$(O") || 
-               contains_subsequence(data, b"\x1b$(P") {
+            if contains_subsequence(data, b"\x1b$(O") || contains_subsequence(data, b"\x1b$(P") {
                 return Some(DetectionResult::new(
                     Some("iso2022-jp-2004"),
                     DETERMINISTIC_CONFIDENCE,
@@ -42,7 +42,7 @@ pub fn detect_escape_encoding(data: &[u8]) -> Option<DetectionResult> {
                 Some("ja"),
             ));
         }
-        
+
         // ISO-2022-KR: ESC sequence for KS C 5601
         if contains_subsequence(data, b"\x1b$)C") {
             return Some(DetectionResult::new(
@@ -52,20 +52,21 @@ pub fn detect_escape_encoding(data: &[u8]) -> Option<DetectionResult> {
             ));
         }
     }
-    
+
     // HZ-GB-2312: tilde escapes for GB2312
     // Require valid GB2312 byte pairs (0x21-0x7E range) between ~{ and ~} markers.
-    if has_tilde && 
-       contains_subsequence(data, b"~{") && 
-       contains_subsequence(data, b"~}") &&
-       has_valid_hz_regions(data) {
+    if has_tilde
+        && contains_subsequence(data, b"~{")
+        && contains_subsequence(data, b"~}")
+        && has_valid_hz_regions(data)
+    {
         return Some(DetectionResult::new(
             Some("hz-gb-2312"),
             DETERMINISTIC_CONFIDENCE,
             Some("zh"),
         ));
     }
-    
+
     // UTF-7: plus-sign shifts into Base64-encoded Unicode.
     // UTF-7 is a 7-bit encoding: every byte must be in 0x00-0x7F.
     if has_plus && data.iter().all(|&b| b < 0x80) && has_valid_utf7_sequences(data) {
@@ -75,7 +76,7 @@ pub fn detect_escape_encoding(data: &[u8]) -> Option<DetectionResult> {
             None,
         ));
     }
-    
+
     None
 }
 
@@ -101,11 +102,12 @@ fn has_valid_hz_regions(data: &[u8]) -> bool {
         }
         let end = begin + 2 + end.unwrap();
         let region = &data[begin + 2..end];
-        
+
         // Must be non-empty, even length, and all bytes in GB2312 range
-        if region.len() >= 2 &&
-           region.len() % 2 == 0 &&
-           region.iter().all(|&b| (0x21..=0x7E).contains(&b)) {
+        if region.len() >= 2
+            && region.len() % 2 == 0
+            && region.iter().all(|&b| (0x21..=0x7E).contains(&b))
+        {
             return true;
         }
         start = end + 2;
@@ -116,7 +118,8 @@ fn find_subsequence(data: &[u8], pattern: &[u8]) -> Option<usize> {
     if pattern.is_empty() || data.len() < pattern.len() {
         return None;
     }
-    data.windows(pattern.len()).position(|window| window == pattern)
+    data.windows(pattern.len())
+        .position(|window| window == pattern)
 }
 
 // Base64 alphabet used inside UTF-7 shifted sequences (+<Base64>-)
@@ -125,7 +128,7 @@ const B64_CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0
 fn has_valid_utf7_sequences(data: &[u8]) -> bool {
     let mut start = 0;
     let mut high_confidence_count = 0;
-    
+
     loop {
         let shift_pos = data[start..].iter().position(|&b| b == b'+');
         if shift_pos.is_none() {
@@ -133,23 +136,23 @@ fn has_valid_utf7_sequences(data: &[u8]) -> bool {
         }
         let shift_pos = start + shift_pos.unwrap();
         let pos = shift_pos + 1; // skip the '+'
-        
+
         if pos >= data.len() {
             break;
         }
-        
+
         // +- is a literal plus, not a shifted sequence
         if data[pos] == b'-' {
             start = pos + 1;
             continue;
         }
-        
+
         // Guard: if the '+' is embedded in a base64 stream, it's not real UTF-7
         if is_embedded_in_base64(data, shift_pos) {
             start = pos;
             continue;
         }
-        
+
         // Collect consecutive Base64 characters
         let mut i = pos;
         while i < data.len() && B64_CHARS.contains(&data[i]) {
@@ -157,12 +160,12 @@ fn has_valid_utf7_sequences(data: &[u8]) -> bool {
         }
         let b64_len = i - pos;
         let b64_content = &data[pos..i];
-        
+
         // Check what comes after the base64 sequence
         let next_char = if i < data.len() { Some(data[i]) } else { None };
         let has_explicit_terminator = next_char == Some(b'-');
         let has_implicit_terminator = next_char.map_or(true, |c| !B64_CHARS.contains(&c));
-        
+
         // A valid UTF-7 sequence must:
         // 1. Have valid base64 content (decodes to valid UTF-16BE)
         // 2. Have at least 2 characters
@@ -200,10 +203,10 @@ fn has_valid_utf7_sequences(data: &[u8]) -> bool {
                 }
             }
         }
-        
+
         start = i;
     }
-    
+
     false
 }
 
@@ -360,16 +363,16 @@ fn decode_first_utf7_char(b64_bytes: &[u8]) -> Option<u16> {
     let n = b64_bytes.len();
     let total_bits = n * 6;
     let num_bytes = total_bits / 8;
-    
+
     if num_bytes < 2 {
         return None;
     }
-    
+
     // Decode just enough bits for the first code unit (16 bits)
     let mut bit_buf = 0u32;
     let mut bit_count = 0;
     let mut raw = Vec::new();
-    
+
     for &c in b64_bytes {
         let val = base64_decode(c).unwrap_or(0);
         bit_buf = (bit_buf << 6) | val as u32;
@@ -382,7 +385,7 @@ fn decode_first_utf7_char(b64_bytes: &[u8]) -> Option<u16> {
             break;
         }
     }
-    
+
     if raw.len() >= 2 {
         Some(((raw[0] as u16) << 8) | (raw[1] as u16))
     } else {
@@ -395,17 +398,17 @@ fn decode_second_utf7_char(b64_bytes: &[u8]) -> Option<u16> {
     let n = b64_bytes.len();
     let total_bits = n * 6;
     let num_bytes = total_bits / 8;
-    
+
     // Need at least 4 bytes to decode 2 code units
     if num_bytes < 4 {
         return None;
     }
-    
+
     // Decode enough bits for the second code unit (bits 16-31)
     let mut bit_buf = 0u32;
     let mut bit_count = 0;
     let mut raw = Vec::new();
-    
+
     for &c in b64_bytes {
         let val = base64_decode(c).unwrap_or(0);
         bit_buf = (bit_buf << 6) | val as u32;
@@ -418,7 +421,7 @@ fn decode_second_utf7_char(b64_bytes: &[u8]) -> Option<u16> {
             break;
         }
     }
-    
+
     if raw.len() >= 4 {
         Some(((raw[2] as u16) << 8) | (raw[3] as u16))
     } else {
@@ -430,24 +433,28 @@ fn is_embedded_in_base64(data: &[u8], pos: usize) -> bool {
     // Return True if the '+' at pos is embedded in a base64 stream
     let mut count = 0;
     let mut i = pos.saturating_sub(1);
-    
+
     while i > 0 {
         let b = data[i];
         if b == 0x0A || b == 0x0D {
             // Skip newlines
-            if i == 0 { break; }
+            if i == 0 {
+                break;
+            }
             i -= 1;
             continue;
         }
         if B64_CHARS.contains(&b) || b == b'=' {
             count += 1;
-            if i == 0 { break; }
+            if i == 0 {
+                break;
+            }
             i -= 1;
         } else {
             break;
         }
     }
-    
+
     count >= 4
 }
 
@@ -456,13 +463,13 @@ fn is_valid_utf7_b64(b64_bytes: &[u8]) -> bool {
     // Note: Unlike standard base64, UTF-7 doesn't require padding bits to be zero.
     let n = b64_bytes.len();
     let total_bits = n * 6;
-    
+
     // Decode to raw bytes and validate as UTF-16BE
     let num_bytes = total_bits / 8;
     let mut raw = Vec::with_capacity(num_bytes);
     let mut bit_buf = 0u32;
     let mut bit_count = 0;
-    
+
     for &c in b64_bytes {
         let val = base64_decode(c).unwrap_or(0);
         bit_buf = (bit_buf << 6) | val as u32;
@@ -472,12 +479,12 @@ fn is_valid_utf7_b64(b64_bytes: &[u8]) -> bool {
             raw.push(((bit_buf >> bit_count) & 0xFF) as u8);
         }
     }
-    
+
     // Validate UTF-16BE: check for lone surrogates
     let mut prev_high = false;
     for chunk in raw.chunks_exact(2) {
         let code_unit = ((chunk[0] as u16) << 8) | (chunk[1] as u16);
-        
+
         if (0xD800..=0xDBFF).contains(&code_unit) {
             // High surrogate
             if prev_high {
@@ -496,7 +503,7 @@ fn is_valid_utf7_b64(b64_bytes: &[u8]) -> bool {
             }
         }
     }
-    
+
     !prev_high
 }
 

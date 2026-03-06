@@ -19,7 +19,7 @@ pub fn compute_structural_score(
     if data.is_empty() || !encoding_info.is_multibyte {
         return 0.0;
     }
-    
+
     let result = get_analysis(data, encoding_info.name, ctx);
     result.map(|(ratio, _, _)| ratio).unwrap_or(0.0)
 }
@@ -34,22 +34,20 @@ pub fn compute_multibyte_byte_coverage(
     if data.is_empty() || !encoding_info.is_multibyte {
         return 0.0;
     }
-    
+
     let result = get_analysis(data, encoding_info.name, ctx);
     if result.is_none() {
         return 0.0;
     }
-    
+
     let mb_bytes = result.unwrap().1;
-    
-    let non_ascii = non_ascii_count.unwrap_or_else(|| {
-        data.iter().filter(|&&b| b > 0x7F).count()
-    });
-    
+
+    let non_ascii = non_ascii_count.unwrap_or_else(|| data.iter().filter(|&&b| b > 0x7F).count());
+
     if non_ascii == 0 {
         return 0.0;
     }
-    
+
     mb_bytes as f64 / non_ascii as f64
 }
 
@@ -62,20 +60,16 @@ pub fn compute_lead_byte_diversity(
     if data.is_empty() || !encoding_info.is_multibyte {
         return 0;
     }
-    
+
     let result = get_analysis(data, encoding_info.name, ctx);
     result.map(|(_, _, diversity)| diversity).unwrap_or(256)
 }
 
-fn get_analysis(
-    data: &[u8],
-    name: &str,
-    ctx: &mut PipelineContext,
-) -> Option<(f64, usize, usize)> {
+fn get_analysis(data: &[u8], name: &str, ctx: &mut PipelineContext) -> Option<(f64, usize, usize)> {
     if let Some(&cached) = ctx.analysis_cache.get(name) {
         return Some(cached);
     }
-    
+
     let result = analyze_encoding(data, name);
     if let Some(r) = result {
         ctx.analysis_cache.insert(name.to_string(), r);
@@ -100,7 +94,7 @@ fn analyze_shift_jis(data: &[u8]) -> (f64, usize, usize) {
     let mut valid_count = 0;
     let mut mb_bytes = 0;
     let mut leads = std::collections::HashSet::new();
-    
+
     let mut i = 0;
     while i < data.len() {
         let b = data[i];
@@ -125,8 +119,12 @@ fn analyze_shift_jis(data: &[u8]) -> (f64, usize, usize) {
             i += 1;
         }
     }
-    
-    let ratio = if lead_count > 0 { valid_count as f64 / lead_count as f64 } else { 0.0 };
+
+    let ratio = if lead_count > 0 {
+        valid_count as f64 / lead_count as f64
+    } else {
+        0.0
+    };
     (ratio, mb_bytes, leads.len())
 }
 
@@ -135,7 +133,7 @@ fn analyze_euc_jp(data: &[u8]) -> (f64, usize, usize) {
     let mut valid_count = 0;
     let mut mb_bytes = 0;
     let mut leads = std::collections::HashSet::new();
-    
+
     let mut i = 0;
     while i < data.len() {
         let b = data[i];
@@ -153,9 +151,10 @@ fn analyze_euc_jp(data: &[u8]) -> (f64, usize, usize) {
         } else if b == 0x8F {
             // SS3 sequence
             lead_count += 1;
-            if i + 2 < data.len() && 
-               (0xA1..=0xFE).contains(&data[i + 1]) && 
-               (0xA1..=0xFE).contains(&data[i + 2]) {
+            if i + 2 < data.len()
+                && (0xA1..=0xFE).contains(&data[i + 1])
+                && (0xA1..=0xFE).contains(&data[i + 2])
+            {
                 valid_count += 1;
                 leads.insert(b);
                 mb_bytes += 3;
@@ -177,8 +176,12 @@ fn analyze_euc_jp(data: &[u8]) -> (f64, usize, usize) {
             i += 1;
         }
     }
-    
-    let ratio = if lead_count > 0 { valid_count as f64 / lead_count as f64 } else { 0.0 };
+
+    let ratio = if lead_count > 0 {
+        valid_count as f64 / lead_count as f64
+    } else {
+        0.0
+    };
     (ratio, mb_bytes, leads.len())
 }
 
@@ -187,7 +190,7 @@ fn analyze_euc_kr(data: &[u8]) -> (f64, usize, usize) {
     let mut valid_count = 0;
     let mut mb_bytes = 0;
     let mut leads = std::collections::HashSet::new();
-    
+
     let mut i = 0;
     while i < data.len() {
         let b = data[i];
@@ -205,8 +208,12 @@ fn analyze_euc_kr(data: &[u8]) -> (f64, usize, usize) {
             i += 1;
         }
     }
-    
-    let ratio = if lead_count > 0 { valid_count as f64 / lead_count as f64 } else { 0.0 };
+
+    let ratio = if lead_count > 0 {
+        valid_count as f64 / lead_count as f64
+    } else {
+        0.0
+    };
     (ratio, mb_bytes, leads.len())
 }
 
@@ -215,17 +222,18 @@ fn analyze_gb18030(data: &[u8]) -> (f64, usize, usize) {
     let mut valid_count = 0;
     let mut mb_bytes = 0;
     let mut leads = std::collections::HashSet::new();
-    
+
     let mut i = 0;
     while i < data.len() {
         let b = data[i];
         if (0x81..=0xFE).contains(&b) {
             lead_count += 1;
             // Try 4-byte first
-            if i + 3 < data.len() && 
-               (0x30..=0x39).contains(&data[i + 1]) && 
-               (0x81..=0xFE).contains(&data[i + 2]) && 
-               (0x30..=0x39).contains(&data[i + 3]) {
+            if i + 3 < data.len()
+                && (0x30..=0x39).contains(&data[i + 1])
+                && (0x81..=0xFE).contains(&data[i + 2])
+                && (0x30..=0x39).contains(&data[i + 3])
+            {
                 valid_count += 1;
                 leads.insert(b);
                 mb_bytes += 2;
@@ -233,9 +241,10 @@ fn analyze_gb18030(data: &[u8]) -> (f64, usize, usize) {
                 continue;
             }
             // 2-byte GB2312
-            if (0xA1..=0xF7).contains(&b) && 
-               i + 1 < data.len() && 
-               (0xA1..=0xFE).contains(&data[i + 1]) {
+            if (0xA1..=0xF7).contains(&b)
+                && i + 1 < data.len()
+                && (0xA1..=0xFE).contains(&data[i + 1])
+            {
                 valid_count += 1;
                 leads.insert(b);
                 mb_bytes += 2;
@@ -247,8 +256,12 @@ fn analyze_gb18030(data: &[u8]) -> (f64, usize, usize) {
             i += 1;
         }
     }
-    
-    let ratio = if lead_count > 0 { valid_count as f64 / lead_count as f64 } else { 0.0 };
+
+    let ratio = if lead_count > 0 {
+        valid_count as f64 / lead_count as f64
+    } else {
+        0.0
+    };
     (ratio, mb_bytes, leads.len())
 }
 
@@ -257,7 +270,7 @@ fn analyze_big5(data: &[u8]) -> (f64, usize, usize) {
     let mut valid_count = 0;
     let mut mb_bytes = 0;
     let mut leads = std::collections::HashSet::new();
-    
+
     let mut i = 0;
     while i < data.len() {
         let b = data[i];
@@ -281,8 +294,12 @@ fn analyze_big5(data: &[u8]) -> (f64, usize, usize) {
             i += 1;
         }
     }
-    
-    let ratio = if lead_count > 0 { valid_count as f64 / lead_count as f64 } else { 0.0 };
+
+    let ratio = if lead_count > 0 {
+        valid_count as f64 / lead_count as f64
+    } else {
+        0.0
+    };
     (ratio, mb_bytes, leads.len())
 }
 
@@ -291,13 +308,11 @@ fn analyze_johab(data: &[u8]) -> (f64, usize, usize) {
     let mut valid_count = 0;
     let mut mb_bytes = 0;
     let mut leads = std::collections::HashSet::new();
-    
+
     let mut i = 0;
     while i < data.len() {
         let b = data[i];
-        if (0x84..=0xD3).contains(&b) || 
-           (0xD8..=0xDE).contains(&b) || 
-           (0xE0..=0xF9).contains(&b) {
+        if (0x84..=0xD3).contains(&b) || (0xD8..=0xDE).contains(&b) || (0xE0..=0xF9).contains(&b) {
             lead_count += 1;
             if i + 1 < data.len() {
                 let trail = data[i + 1];
@@ -319,7 +334,11 @@ fn analyze_johab(data: &[u8]) -> (f64, usize, usize) {
             i += 1;
         }
     }
-    
-    let ratio = if lead_count > 0 { valid_count as f64 / lead_count as f64 } else { 0.0 };
+
+    let ratio = if lead_count > 0 {
+        valid_count as f64 / lead_count as f64
+    } else {
+        0.0
+    };
     (ratio, mb_bytes, leads.len())
 }

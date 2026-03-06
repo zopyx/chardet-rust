@@ -8,7 +8,7 @@ pub fn has_binary_signature(data: &[u8]) -> bool {
     if data.len() < 4 {
         return false;
     }
-    
+
     // Common binary file signatures (magic numbers)
     match &data[..4] {
         // PNG
@@ -39,12 +39,12 @@ pub fn is_binary(data: &[u8], max_bytes: usize) -> bool {
     if data.is_empty() {
         return false;
     }
-    
+
     // First check for binary file signatures
     if has_binary_signature(data) {
         return true;
     }
-    
+
     // Count binary-indicator control bytes (0x00-0x08, 0x0E-0x1F — excludes \t \n \v \f \r)
     // Also excludes 0x0E (SO), 0x0F (SI), 0x1B (ESC) used by ISO-2022 escape sequences
     // Also count null bytes (0x00) specifically
@@ -53,13 +53,13 @@ pub fn is_binary(data: &[u8], max_bytes: usize) -> bool {
         .iter()
         .filter(|&&b| (b <= 0x08) || (b >= 0x10 && b <= 0x1A) || (b >= 0x1C && b <= 0x1F))
         .count();
-    
+
     let binary_count = null_count + control_count;
-    
+
     // High proportion of null bytes is a strong indicator of binary
     if null_count > 0 && (null_count as f64) / (data.len() as f64) > 0.01 {
         return true;
     }
-    
+
     (binary_count as f64) / (data.len() as f64) > BINARY_THRESHOLD
 }

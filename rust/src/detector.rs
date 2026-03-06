@@ -5,8 +5,8 @@ use pyo3::types::PyDict;
 
 use crate::enums::{EncodingEra, LanguageFilter};
 use crate::equivalences::apply_legacy_rename;
-use crate::pipeline::{DetectionResult, DEFAULT_MAX_BYTES};
 use crate::pipeline::orchestrator::run_pipeline;
+use crate::pipeline::{DetectionResult, DEFAULT_MAX_BYTES};
 
 /// Streaming character encoding detector.
 #[pyclass]
@@ -49,13 +49,13 @@ impl UniversalDetector {
         if lang_filter != LanguageFilter::ALL {
             // Would emit deprecation warning in Python
         }
-        
+
         if max_bytes < 1 {
             return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "max_bytes must be a positive integer"
+                "max_bytes must be a positive integer",
             ));
         }
-        
+
         Ok(Self {
             should_rename_legacy,
             encoding_era,
@@ -66,31 +66,32 @@ impl UniversalDetector {
             result: None,
         })
     }
-    
+
     /// Feed a chunk of bytes to the detector.
     fn feed(&mut self, byte_str: &[u8]) -> PyResult<()> {
         if self.closed {
             return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "feed() called after close() without reset()"
+                "feed() called after close() without reset()",
             ));
         }
-        
+
         if self.done {
             return Ok(());
         }
-        
+
         let remaining = self.max_bytes.saturating_sub(self.buffer.len());
         if remaining > 0 {
-            self.buffer.extend_from_slice(&byte_str[..byte_str.len().min(remaining)]);
+            self.buffer
+                .extend_from_slice(&byte_str[..byte_str.len().min(remaining)]);
         }
-        
+
         if self.buffer.len() >= self.max_bytes {
             self.done = true;
         }
-        
+
         Ok(())
     }
-    
+
     /// Finalize detection and return the best result.
     fn close(&mut self, py: Python) -> PyResult<PyObject> {
         if !self.closed {
@@ -99,10 +100,10 @@ impl UniversalDetector {
             self.result = Some(results[0].clone());
             self.done = true;
         }
-        
+
         self.get_result(py)
     }
-    
+
     /// Reset the detector to its initial state for reuse.
     fn reset(&mut self) {
         self.buffer.clear();
@@ -110,7 +111,7 @@ impl UniversalDetector {
         self.closed = false;
         self.result = None;
     }
-    
+
     /// Get the current best detection result.
     #[getter]
     fn get_result(&self, py: Python) -> PyResult<PyObject> {
@@ -129,11 +130,7 @@ impl UniversalDetector {
 }
 
 /// Detect the encoding of a byte string.
-pub fn detect_bytes(
-    data: &[u8],
-    encoding_era: EncodingEra,
-    max_bytes: usize,
-) -> DetectionResult {
+pub fn detect_bytes(data: &[u8], encoding_era: EncodingEra, max_bytes: usize) -> DetectionResult {
     let results = run_pipeline(data, encoding_era, max_bytes);
     // Results are already sorted by the pipeline; confusion resolution handles ties
     results[0].clone()
@@ -147,20 +144,21 @@ pub fn detect_all_bytes(
     ignore_threshold: bool,
 ) -> Vec<DetectionResult> {
     let results = run_pipeline(data, encoding_era, max_bytes);
-    
+
     // Filter by threshold if requested
     if !ignore_threshold {
         let threshold: f64 = 0.20;
-        let filtered: Vec<_> = results.iter()
+        let filtered: Vec<_> = results
+            .iter()
             .filter(|r| r.confidence > threshold)
             .cloned()
             .collect();
-        
+
         if !filtered.is_empty() {
             return filtered;
         }
     }
-    
+
     // Results are already sorted by the pipeline; don't re-sort to preserve confusion resolution
     results
 }

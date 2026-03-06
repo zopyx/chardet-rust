@@ -10,7 +10,7 @@ pub fn filter_by_validity<'a>(
     if data.is_empty() {
         return candidates.to_vec();
     }
-    
+
     candidates
         .iter()
         .filter(|enc| is_valid_for_encoding(data, enc))
@@ -22,15 +22,13 @@ pub fn filter_by_validity<'a>(
 fn is_valid_for_encoding(data: &[u8], enc: &EncodingInfo) -> bool {
     // For most encodings, we rely on structural validation.
     // For UTF-8, we've already validated it earlier in the pipeline.
-    
+
     match enc.name {
         "utf-8" | "utf-8-sig" => {
             // UTF-8 validation is done separately
             true
         }
-        "ascii" => {
-            data.iter().all(|&b| b < 0x80)
-        }
+        "ascii" => data.iter().all(|&b| b < 0x80),
         _ if enc.is_multibyte => {
             // For CJK encodings, we do basic structural checks
             is_valid_multibyte(data, enc.name)
@@ -62,23 +60,23 @@ fn is_valid_shift_jis(data: &[u8]) -> bool {
     let mut valid_single = 0;
     let mut invalid_sequences = 0;
     let mut high_byte_count = 0;
-    
+
     while i < data.len() {
         let b = data[i];
         if b < 0x80 {
             i += 1;
             continue;
         }
-        
+
         high_byte_count += 1;
-        
+
         // Single-byte half-width katakana: 0xA0-0xDF (valid in CP932)
         if (0xA0..=0xDF).contains(&b) {
             valid_single += 1;
             i += 1;
             continue;
         }
-        
+
         // Lead bytes: 0x81-0x9F, 0xE0-0xFC (includes 0xF0-0xFC for CP932 extended)
         if (0x81..=0x9F).contains(&b) || (0xE0..=0xFC).contains(&b) {
             if i + 1 >= data.len() {
@@ -107,19 +105,19 @@ fn is_valid_shift_jis(data: &[u8]) -> bool {
             i += 1;
         }
     }
-    
+
     // Need at least some valid sequences to consider it valid Shift_JIS
     let total_valid = valid_pairs + valid_single;
     if total_valid < 2 {
         return false;
     }
-    
+
     // Allow up to 30% invalid sequences
     let total = total_valid + invalid_sequences;
     if total > 0 && (invalid_sequences as f64) / (total as f64) > 0.30 {
         return false;
     }
-    
+
     true
 }
 
@@ -256,9 +254,7 @@ fn is_valid_johab(data: &[u8]) -> bool {
             continue;
         }
         // Lead: 0x84-0xD3, 0xD8-0xDE, 0xE0-0xF9
-        if (0x84..=0xD3).contains(&b) || 
-           (0xD8..=0xDE).contains(&b) || 
-           (0xE0..=0xF9).contains(&b) {
+        if (0x84..=0xD3).contains(&b) || (0xD8..=0xDE).contains(&b) || (0xE0..=0xF9).contains(&b) {
             if i + 1 >= data.len() {
                 return true;
             }
@@ -280,7 +276,7 @@ fn is_valid_hz(data: &[u8]) -> bool {
     // In GB mode, characters are pairs of bytes in 0x21-0x7E
     let mut in_gb_mode = false;
     let mut i = 0;
-    
+
     while i < data.len() {
         if data[i] == b'~' {
             if i + 1 < data.len() {
@@ -299,7 +295,7 @@ fn is_valid_hz(data: &[u8]) -> bool {
                 }
             }
         }
-        
+
         if in_gb_mode {
             // In GB mode, expect pairs in 0x21-0x7E
             if !(0x21..=0x7E).contains(&data[i]) {
@@ -308,9 +304,9 @@ fn is_valid_hz(data: &[u8]) -> bool {
         } else if data[i] > 0x7F {
             return false;
         }
-        
+
         i += 1;
     }
-    
+
     true
 }

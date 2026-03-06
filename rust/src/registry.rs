@@ -1,8 +1,8 @@
 //! Encoding registry with metadata for all supported encodings.
 
 use crate::enums::EncodingEra;
-use std::collections::HashMap;
 use once_cell::sync::Lazy;
+use std::collections::HashMap;
 
 /// Metadata for a single encoding.
 #[derive(Clone, Debug)]
@@ -24,7 +24,7 @@ pub struct EncodingInfo {
 // Static registry of all supported encodings
 pub static REGISTRY: Lazy<HashMap<&'static str, EncodingInfo>> = Lazy::new(|| {
     let mut map = HashMap::new();
-    
+
     // Insert all encodings
     for enc in ENCODING_ENTRIES.iter() {
         map.insert(enc.name, enc.clone());
@@ -33,7 +33,7 @@ pub static REGISTRY: Lazy<HashMap<&'static str, EncodingInfo>> = Lazy::new(|| {
             map.insert(*alias, enc.clone());
         }
     }
-    
+
     map
 });
 
@@ -256,7 +256,9 @@ static ENCODING_ENTRIES: &[EncodingInfo] = &[
         era: EncodingEra::ModernWeb,
         is_multibyte: false,
         python_codec: "cp1252",
-        languages: &["en", "fr", "de", "es", "pt", "it", "nl", "da", "sv", "no", "fi", "is", "id", "ms"],
+        languages: &[
+            "en", "fr", "de", "es", "pt", "it", "nl", "da", "sv", "no", "fi", "is", "id", "ms",
+        ],
     },
     EncodingInfo {
         name: "windows-1253",
@@ -339,7 +341,9 @@ static ENCODING_ENTRIES: &[EncodingInfo] = &[
         era: EncodingEra::LegacyIso,
         is_multibyte: false,
         python_codec: "iso-8859-1",
-        languages: &["en", "fr", "de", "es", "pt", "it", "nl", "da", "sv", "no", "fi", "is", "id", "ms"],
+        languages: &[
+            "en", "fr", "de", "es", "pt", "it", "nl", "da", "sv", "no", "fi", "is", "id", "ms",
+        ],
     },
     EncodingInfo {
         name: "iso-8859-2",
@@ -435,7 +439,9 @@ static ENCODING_ENTRIES: &[EncodingInfo] = &[
         era: EncodingEra::LegacyIso,
         is_multibyte: false,
         python_codec: "iso-8859-15",
-        languages: &["en", "fr", "de", "es", "pt", "it", "nl", "da", "sv", "no", "fi", "is", "id", "ms"],
+        languages: &[
+            "en", "fr", "de", "es", "pt", "it", "nl", "da", "sv", "no", "fi", "is", "id", "ms",
+        ],
     },
     EncodingInfo {
         name: "iso-8859-16",
@@ -493,7 +499,9 @@ static ENCODING_ENTRIES: &[EncodingInfo] = &[
         era: EncodingEra::LegacyMac,
         is_multibyte: false,
         python_codec: "mac-roman",
-        languages: &["en", "fr", "de", "es", "pt", "it", "nl", "da", "sv", "no", "fi", "is", "id", "ms"],
+        languages: &[
+            "en", "fr", "de", "es", "pt", "it", "nl", "da", "sv", "no", "fi", "is", "id", "ms",
+        ],
     },
     EncodingInfo {
         name: "mac-turkish",
@@ -704,7 +712,10 @@ static ENCODING_ENTRIES: &[EncodingInfo] = &[
         era: EncodingEra::Mainframe,
         is_multibyte: false,
         python_codec: "cp1140",
-        languages: &["en", "fr", "de", "es", "pt", "it", "nl", "da", "sv", "no", "fi", "is", "id", "ms", "tr"],
+        languages: &[
+            "en", "fr", "de", "es", "pt", "it", "nl", "da", "sv", "no", "fi", "is", "id", "ms",
+            "tr",
+        ],
     },
     EncodingInfo {
         name: "cp424",

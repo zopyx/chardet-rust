@@ -8,7 +8,7 @@ fn has_baltic_distinguishing_bytes(data: &[u8]) -> bool {
     // Bytes that decode to different characters in Windows-1252 vs Windows-1257
     // and are commonly used in Baltic languages:
     // 0xE0 = ą (1257) vs à (1252)
-    // 0xE8 = ė (1257) vs è (1252)  
+    // 0xE8 = ė (1257) vs è (1252)
     // 0xF0 = š (1257) vs ð (1252)
     // 0xF8 = ų (1257) vs ø (1252)
     // 0xFB = ū (1257) vs û (1252)
@@ -37,8 +37,8 @@ fn has_iso8859_16_distinguishing_bytes(data: &[u8]) -> bool {
     // 0xAA = ő, 0xAB = Ő, 0xAC = Ĳ, 0xB1 = ą, 0xB2 = Ł
     // 0xB3 = ł, 0xB6 = ș, 0xB9 = œ, 0xBA = ő, 0xBB = ő, 0xBC = ĳ
     let iso8859_16_bytes: &[u8] = &[
-        0xA1, 0xA2, 0xA3, 0xA6, 0xA9, 0xAA, 0xAB, 0xAC,
-        0xB1, 0xB2, 0xB3, 0xB6, 0xB9, 0xBA, 0xBB, 0xBC
+        0xA1, 0xA2, 0xA3, 0xA6, 0xA9, 0xAA, 0xAB, 0xAC, 0xB1, 0xB2, 0xB3, 0xB6, 0xB9, 0xBA, 0xBB,
+        0xBC,
     ];
     data.iter().any(|&b| iso8859_16_bytes.contains(&b))
 }
@@ -55,21 +55,21 @@ pub fn resolve_confusion_groups(
 ) -> Vec<DetectionResult> {
     // Simplified version - in the full implementation this would use
     // pre-computed distinguishing byte maps from confusion.bin
-    
+
     if results.len() < 2 {
         return results;
     }
-    
+
     // Check for known confusion pairs and resolve if needed
     let top = &results[0];
     let second = &results[1];
-    
+
     if let (Some(ref enc1), Some(ref enc2)) = (&top.encoding, &second.encoding) {
         // Special case: Baltic text with distinguishing bytes should use Windows-1257
         // This handles cases where iso-8859-1 and iso-8859-13 tie for top
         let top_lang = get_top_language(&results);
         let is_baltic_lang = matches!(top_lang, Some("lt") | Some("lv") | Some("et"));
-        
+
         if is_baltic_lang && has_baltic_distinguishing_bytes(data) {
             // Find Windows-1257 or iso-8859-13 in the results and promote it
             for (i, result) in results.iter().enumerate() {
@@ -85,14 +85,13 @@ pub fn resolve_confusion_groups(
                 }
             }
         }
-        
+
         // Special case: KOI8-U vs KOI8-R confusion with Ukrainian bytes
         // If we have KOI8-U distinguishing bytes and both encodings are close,
         // prefer KOI8-U (the bytes are strong evidence of Ukrainian text)
-        let is_koi8_confusion = 
-            (enc1 == "koi8-r" && enc2 == "koi8-u") ||
-            (enc1 == "koi8-u" && enc2 == "koi8-r");
-        
+        let is_koi8_confusion =
+            (enc1 == "koi8-r" && enc2 == "koi8-u") || (enc1 == "koi8-u" && enc2 == "koi8-r");
+
         if is_koi8_confusion && has_koi8u_distinguishing_bytes(data) {
             // Prefer KOI8-U if it has Ukrainian-specific bytes
             // enc1 is top, enc2 is second - we want KOI8-U to be top
@@ -102,13 +101,12 @@ pub fn resolve_confusion_groups(
                 return new_results;
             }
         }
-        
+
         // Special case: ISO-8859-16 vs ISO-8859-1 confusion
         // ISO-8859-16 is for South-Eastern European languages (Romanian, Croatian, etc.)
-        let is_iso8859_16_confusion = 
-            (enc1 == "iso-8859-1" && enc2 == "iso-8859-16") ||
-            (enc1 == "iso-8859-16" && enc2 == "iso-8859-1");
-        
+        let is_iso8859_16_confusion = (enc1 == "iso-8859-1" && enc2 == "iso-8859-16")
+            || (enc1 == "iso-8859-16" && enc2 == "iso-8859-1");
+
         if is_iso8859_16_confusion && has_iso8859_16_distinguishing_bytes(data) {
             // Prefer ISO-8859-16 if it has distinguishing bytes
             // enc1 is top, enc2 is second - we want ISO-8859-16 to be top
@@ -118,7 +116,7 @@ pub fn resolve_confusion_groups(
                 return new_results;
             }
         }
-        
+
         // Known confusion pairs - prefer Windows encodings over ISO equivalents
         // Note: We don't include mac-cyrillic here because it's not an ISO encoding,
         // and swapping it with windows-1251 can cause incorrect detection for files
@@ -135,13 +133,21 @@ pub fn resolve_confusion_groups(
             ("iso-8859-13", "windows-1257"),
             ("koi8-r", "windows-1251"),
         ];
-        
+
         for (a, b) in confusion_pairs {
             if (enc1 == *a && enc2 == *b) || (enc1 == *b && enc2 == *a) {
                 // Prefer Windows encodings over ISO equivalents
-                let winner = if enc1.starts_with("windows-") { enc1 } else { enc2 };
-                let loser = if enc1.starts_with("windows-") { enc2 } else { enc1 };
-                
+                let winner = if enc1.starts_with("windows-") {
+                    enc1
+                } else {
+                    enc2
+                };
+                let loser = if enc1.starts_with("windows-") {
+                    enc2
+                } else {
+                    enc1
+                };
+
                 if winner == enc2 {
                     // Swap results
                     let mut new_results = results.clone();
@@ -151,6 +157,6 @@ pub fn resolve_confusion_groups(
             }
         }
     }
-    
+
     results
 }

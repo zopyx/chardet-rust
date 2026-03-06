@@ -3,7 +3,7 @@
 use super::{DetectionResult, DETERMINISTIC_CONFIDENCE};
 
 // Ordered longest-first so UTF-32 is checked before UTF-16
-const BOMS: &[( &[u8], &str )] = &[
+const BOMS: &[(&[u8], &str)] = &[
     (b"\x00\x00\xfe\xff", "utf-32-be"),
     (b"\xff\xfe\x00\x00", "utf-32-le"),
     (b"\xef\xbb\xbf", "utf-8-sig"),
@@ -24,11 +24,7 @@ pub fn detect_bom(data: &[u8]) -> Option<DetectionResult> {
                     continue;
                 }
             }
-            return Some(DetectionResult::new(
-                Some(encoding),
-                1.0,
-                None,
-            ));
+            return Some(DetectionResult::new(Some(encoding), 1.0, None));
         }
     }
     None

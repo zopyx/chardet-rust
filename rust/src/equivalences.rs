@@ -1,7 +1,7 @@
 //! Encoding equivalences and legacy name remapping.
 
-use std::collections::HashMap;
 use once_cell::sync::Lazy;
+use std::collections::HashMap;
 
 /// Preferred superset mapping for the should_rename_legacy API option.
 /// Uses display-cased names to match chardet 6.x output (e.g., "Windows-1252").
@@ -36,15 +36,18 @@ pub fn apply_legacy_rename(encoding: &str) -> String {
 /// Infer language from encoding name.
 pub fn infer_language(encoding: &str) -> Option<&'static str> {
     let encoding_lower = encoding.to_lowercase();
-    
+
     // Single-language encodings
     match encoding_lower.as_str() {
         "big5" | "big5hkscs" | "gb18030" | "gb2312" | "gbk" | "hz-gb-2312" => Some("zh"),
-        "cp932" | "shift_jis" | "shift-jis" | "shift_jis_2004" | "euc-jp" | "euc-jis-2004" | "iso-2022-jp" | "iso2022-jp-2" | "iso2022-jp-2004" | "iso2022-jp-ext" => Some("ja"),
+        "cp932" | "shift_jis" | "shift-jis" | "shift_jis_2004" | "euc-jp" | "euc-jis-2004"
+        | "iso-2022-jp" | "iso2022-jp-2" | "iso2022-jp-2004" | "iso2022-jp-ext" => Some("ja"),
         "cp949" | "euc-kr" | "iso-2022-kr" | "johab" => Some("ko"),
         "cp874" | "windows-874" | "tis-620" => Some("th"),
         "windows-1250" | "cp1250" => Some("pl"), // Most common
-        "windows-1251" | "cp1251" | "koi8-r" | "koi8-u" | "mac-cyrillic" | "iso-8859-5" => Some("ru"),
+        "windows-1251" | "cp1251" | "koi8-r" | "koi8-u" | "mac-cyrillic" | "iso-8859-5" => {
+            Some("ru")
+        }
         "windows-1252" | "cp1252" => Some("en"),
         "windows-1253" | "cp1253" | "iso-8859-7" => Some("el"),
         "windows-1254" | "cp1254" | "iso-8859-9" | "mac-turkish" => Some("tr"),

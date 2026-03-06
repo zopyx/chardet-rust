@@ -14,7 +14,7 @@ maintainers = [
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: GNU Lesser General Public License v2 or later (LGPLv2+)",
+
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
@@ -40,36 +40,19 @@ Changelog = "https://chardet.readthedocs.io/en/latest/changelog.html"
 chardetect = "chardet.cli:main"
 
 [build-system]
-requires = ["hatchling", "hatch-vcs"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=61", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
 
-[tool.hatch.version]
-source = "vcs"
+[tool.setuptools]
+package-dir = {"" = "src"}
 
-[tool.hatch.build.hooks.vcs]
-version-file = "src/chardet/_version.py"
+[tool.setuptools.packages.find]
+where = ["src"]
+exclude = ["chardet_rs*"]
 
-[tool.hatch.build.targets.sdist]
-exclude = ["tests/data/", "data/"]
+[tool.setuptools_scm]
+write_to = "src/chardet/_version.py"
 
-[tool.hatch.build.targets.wheel]
-packages = ["src/chardet"]
-
-[tool.hatch.build.targets.wheel.hooks.mypyc]
-enable-by-default = false
-dependencies = ["hatch-mypyc>=0.16.0", "mypy>=1.15"]
-require-runtime-dependencies = false
-include = [
-    "/src/chardet/models/__init__.py",
-    "/src/chardet/pipeline/structural.py",
-    "/src/chardet/pipeline/validity.py",
-    "/src/chardet/pipeline/statistical.py",
-    "/src/chardet/pipeline/utf1632.py",
-    "/src/chardet/pipeline/utf8.py",
-    "/src/chardet/pipeline/escape.py",
-]
-mypy-args = ["--ignore-missing-imports"]
-options = { debug_level = "0" }
 
 [tool.pytest]
 testpaths = ["tests", "scripts/tests"]

@@ -1,21 +1,21 @@
 //! Detection pipeline stages and shared types.
 
+use crate::equivalences::apply_legacy_rename;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-use crate::equivalences::apply_legacy_rename;
 
-pub mod bom;
-pub mod binary;
 pub mod ascii;
-pub mod utf8;
-pub mod utf1632;
+pub mod binary;
+pub mod bom;
+pub mod confusion;
 pub mod escape;
 pub mod markup;
-pub mod validity;
-pub mod structural;
-pub mod statistical;
-pub mod confusion;
 pub mod orchestrator;
+pub mod statistical;
+pub mod structural;
+pub mod utf1632;
+pub mod utf8;
+pub mod validity;
 
 /// Confidence for deterministic (non-BOM) detection stages.
 pub const DETERMINISTIC_CONFIDENCE: f64 = 0.95;
@@ -46,11 +46,11 @@ impl DetectionResult {
             language: language.map(|s| s.to_string()),
         }
     }
-    
+
     /// Convert to a Python dict.
     pub fn to_py_dict(&self, py: Python, apply_rename: bool) -> PyResult<PyObject> {
         let dict = PyDict::new(py);
-        
+
         // Handle encoding - None should be Python None, not empty string
         let encoding_obj: PyObject = if let Some(ref enc) = self.encoding {
             let enc_str = if apply_rename {
@@ -62,18 +62,18 @@ impl DetectionResult {
         } else {
             py.None()
         };
-        
+
         // Handle language - None should be Python None, not empty string
         let language_obj: PyObject = if let Some(ref lang) = self.language {
             lang.clone().into_py(py)
         } else {
             py.None()
         };
-        
+
         dict.set_item("encoding", encoding_obj)?;
         dict.set_item("confidence", self.confidence)?;
         dict.set_item("language", language_obj)?;
-        
+
         Ok(dict.into())
     }
 }

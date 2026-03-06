@@ -29,66 +29,66 @@ impl EncodingEra {
     pub fn contains(&self, other: &EncodingEra) -> bool {
         (*self as i32 & *other as i32) != 0
     }
-    
+
     /// Support for `in` operator (x in era)
     pub fn __contains__(&self, other: &EncodingEra) -> bool {
         self.contains(other)
     }
-    
+
     /// Bitwise AND operation - handles both EncodingEra and int
     pub fn __and__(&self, other: &Bound<'_, PyAny>) -> PyResult<i32> {
         let self_val = *self as i32;
-        
+
         // Try to extract as EncodingEra first
         if let Ok(era) = other.extract::<EncodingEra>() {
             return Ok(self_val & (era as i32));
         }
-        
+
         // Then try as int
         if let Ok(val) = other.extract::<i32>() {
             return Ok(self_val & val);
         }
-        
+
         Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-            "unsupported operand type for &"
+            "unsupported operand type for &",
         ))
     }
-    
+
     /// Bitwise OR operation - handles both EncodingEra and int
     pub fn __or__(&self, other: &Bound<'_, PyAny>) -> PyResult<i32> {
         let self_val = *self as i32;
-        
+
         // Try to extract as EncodingEra first
         if let Ok(era) = other.extract::<EncodingEra>() {
             return Ok(self_val | (era as i32));
         }
-        
+
         // Then try as int
         if let Ok(val) = other.extract::<i32>() {
             return Ok(self_val | val);
         }
-        
+
         Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-            "unsupported operand type for |"
+            "unsupported operand type for |",
         ))
     }
-    
+
     /// Convert to integer
     pub fn __int__(&self) -> i32 {
         *self as i32
     }
-    
+
     /// Truthiness - return True if not zero
     pub fn __bool__(&self) -> bool {
         *self as i32 != 0
     }
-    
+
     /// Return the name of this enum member
     #[getter]
     fn name(&self) -> String {
         format!("{:?}", self)
     }
-    
+
     /// Return the value of this enum member
     #[getter]
     fn value(&self) -> i32 {
@@ -125,37 +125,37 @@ impl LanguageFilter {
     /// Bitwise AND operation - handles both LanguageFilter and int
     pub fn __and__(&self, other: &Bound<'_, PyAny>) -> PyResult<i32> {
         let self_val = *self as i32;
-        
+
         if let Ok(filter) = other.extract::<LanguageFilter>() {
             return Ok(self_val & (filter as i32));
         }
-        
+
         if let Ok(val) = other.extract::<i32>() {
             return Ok(self_val & val);
         }
-        
+
         Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-            "unsupported operand type for &"
+            "unsupported operand type for &",
         ))
     }
-    
+
     /// Bitwise OR operation - handles both LanguageFilter and int
     pub fn __or__(&self, other: &Bound<'_, PyAny>) -> PyResult<i32> {
         let self_val = *self as i32;
-        
+
         if let Ok(filter) = other.extract::<LanguageFilter>() {
             return Ok(self_val | (filter as i32));
         }
-        
+
         if let Ok(val) = other.extract::<i32>() {
             return Ok(self_val | val);
         }
-        
+
         Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-            "unsupported operand type for |"
+            "unsupported operand type for |",
         ))
     }
-    
+
     /// Convert to integer
     pub fn __int__(&self) -> i32 {
         *self as i32
@@ -165,7 +165,7 @@ impl LanguageFilter {
 impl LanguageFilter {
     /// Get Chinese (simplified + traditional).
     pub const CHINESE: LanguageFilter = LanguageFilter::CHINESE_SIMPLIFIED;
-    
+
     /// Get CJK (all Chinese, Japanese, Korean).
     pub const CJK: LanguageFilter = LanguageFilter::JAPANESE;
 }
