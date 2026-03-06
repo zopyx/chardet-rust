@@ -27,11 +27,12 @@ pub fn run_pipeline(
     
     // Stage 0b: UTF-16/32 null-byte pattern detection (before binary check)
     // UTF-32/16 have many null bytes but are valid text encodings
+    // We check these first to avoid misclassifying them as binary
     if let Some(result) = utf1632::detect_utf1632_patterns(data) {
         return vec![result];
     }
     
-    // Stage 0c: Binary detection - run after UTF-16/32 check to avoid misclassifying them
+    // Stage 0c: Binary detection - run after UTF-16/32 check
     if binary::is_binary(data, max_bytes) {
         return vec![DetectionResult::new(None, DETERMINISTIC_CONFIDENCE, None)];
     }
@@ -76,11 +77,7 @@ pub fn run_pipeline(
     
     // Stage 2a: Byte validity filtering
     let candidates = get_candidates(encoding_era);
-    let has_johab = candidates.iter().any(|c| c.name == "johab");
-    eprintln!("DEBUG: Candidates includes johab: {}", has_johab);
     let mut valid_candidates = validity::filter_by_validity(data, &candidates);
-    let has_johab_after = valid_candidates.iter().any(|c| c.name == "johab");
-    eprintln!("DEBUG: After validity filter includes johab: {}", has_johab_after);
     
     // If UTF-8 failed structural validation, exclude it from candidates
     // to prevent the statistical model from scoring it
@@ -142,25 +139,12 @@ fn gate_cjk_candidates<'a>(
 ) -> Vec<&'a EncodingInfo> {
     let mut gated: Vec<&EncodingInfo> = Vec::new();
     
-    // Debug: Check for Johab
-    let has_johab = candidates.iter().any(|c| c.name == "johab");
-    if has_johab {
-        eprintln!("DEBUG gate_cjk: Johab is in candidates");
-    }
-    
     for enc in candidates {
         if enc.is_multibyte {
             let mb_score = structural::compute_structural_score(data, enc, ctx);
             ctx.mb_scores.insert(enc.name.to_string(), mb_score);
             
-            if enc.name == "johab" {
-                eprintln!("DEBUG gate_cjk: Johab mb_score={}", mb_score);
-            }
-            
             if mb_score < CJK_MIN_MB_RATIO {
-                if enc.name == "johab" {
-                    eprintln!("DEBUG gate_cjk: Johab eliminated - mb_score < {}", CJK_MIN_MB_RATIO);
-                }
                 continue; // No multi-byte structure -> eliminate
             }
             
@@ -179,14 +163,7 @@ fn gate_cjk_candidates<'a>(
             );
             ctx.mb_coverage.insert(enc.name.to_string(), byte_coverage);
             
-            if enc.name == "johab" {
-                eprintln!("DEBUG gate_cjk: Johab non_ascii_count={}, byte_coverage={}", non_ascii_count, byte_coverage);
-            }
-            
             if byte_coverage < CJK_MIN_BYTE_COVERAGE {
-                if enc.name == "johab" {
-                    eprintln!("DEBUG gate_cjk: Johab eliminated - byte_coverage < {}", CJK_MIN_BYTE_COVERAGE);
-                }
                 continue; // Most high bytes are orphans
             }
             

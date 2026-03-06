@@ -1,6 +1,7 @@
 //! Stage 1a+: UTF-16/UTF-32 detection for data without BOM.
 
 use super::{DetectionResult, DETERMINISTIC_CONFIDENCE};
+use crate::pipeline::binary;
 
 // How many bytes to sample for pattern analysis
 const SAMPLE_SIZE: usize = 4096;
@@ -20,6 +21,12 @@ pub fn detect_utf1632_patterns(data: &[u8]) -> Option<DetectionResult> {
     let sample = &data[..data.len().min(SAMPLE_SIZE)];
     
     if sample.len() < MIN_BYTES_UTF16 {
+        return None;
+    }
+    
+    // Skip binary files (GIF, PNG, PDF, etc.) - they may have null bytes
+    // but should not be detected as UTF-16/32
+    if binary::has_binary_signature(sample) {
         return None;
     }
     

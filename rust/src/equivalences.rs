@@ -18,6 +18,9 @@ static PREFERRED_SUPERSET: Lazy<HashMap<&'static str, &'static str>> = Lazy::new
     map.insert("iso-8859-9", "Windows-1254");
     map.insert("iso-8859-11", "CP874");
     map.insert("iso-8859-13", "Windows-1257");
+    map.insert("iso-8859-14", "Windows-1252");
+    map.insert("iso-8859-15", "Windows-1252");
+    map.insert("iso-8859-16", "Windows-1250");
     map.insert("tis-620", "CP874");
     map
 });

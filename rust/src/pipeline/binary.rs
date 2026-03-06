@@ -4,7 +4,7 @@
 const BINARY_THRESHOLD: f64 = 0.01;
 
 /// Check for common binary file signatures
-fn has_binary_signature(data: &[u8]) -> bool {
+pub fn has_binary_signature(data: &[u8]) -> bool {
     if data.len() < 4 {
         return false;
     }

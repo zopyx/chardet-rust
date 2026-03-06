@@ -223,8 +223,8 @@ fn is_valid_johab(data: &[u8]) -> bool {
                 return true;
             }
             let trail = data[i + 1];
-            // Trail: 0x31-0x7E, 0x91-0xFE
-            if !((0x31..=0x7E).contains(&trail) || (0x91..=0xFE).contains(&trail)) {
+            // Trail: 0x31-0x7E, 0x81-0xFE
+            if !((0x31..=0x7E).contains(&trail) || (0x81..=0xFE).contains(&trail)) {
                 return false;
             }
             i += 2;

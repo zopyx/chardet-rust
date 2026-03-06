@@ -96,6 +96,7 @@ pub fn resolve_confusion_groups(
         let confusion_pairs: &[(&str, &str)] = &[
             ("iso-8859-1", "windows-1252"),
             ("iso-8859-2", "windows-1250"),
+            ("iso-8859-4", "windows-1257"),
             ("iso-8859-5", "windows-1251"),
             ("iso-8859-6", "windows-1256"),
             ("iso-8859-7", "windows-1253"),

@@ -66,12 +66,16 @@ SUPERSETS: dict[str, frozenset[str]] = {
     # ISO/Windows superset pairs
     "iso-8859-1": frozenset({"windows-1252"}),
     "iso-8859-2": frozenset({"windows-1250"}),
+    "iso-8859-4": frozenset({"windows-1257"}),
     "iso-8859-5": frozenset({"windows-1251"}),
     "iso-8859-6": frozenset({"windows-1256"}),
     "iso-8859-7": frozenset({"windows-1253"}),
     "iso-8859-8": frozenset({"windows-1255"}),
     "iso-8859-9": frozenset({"windows-1254"}),
     "iso-8859-13": frozenset({"windows-1257"}),
+    "iso-8859-14": frozenset({"windows-1252"}),
+    "iso-8859-15": frozenset({"windows-1252"}),
+    "iso-8859-16": frozenset({"windows-1250"}),
 }
 
 # Preferred superset name for each encoding, used by the ``should_rename_legacy``

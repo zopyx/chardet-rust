@@ -300,7 +300,7 @@ fn analyze_johab(data: &[u8]) -> (f64, usize, usize) {
             lead_count += 1;
             if i + 1 < data.len() {
                 let trail = data[i + 1];
-                if (0x31..=0x7E).contains(&trail) || (0x91..=0xFE).contains(&trail) {
+                if (0x31..=0x7E).contains(&trail) || (0x81..=0xFE).contains(&trail) {
                     valid_count += 1;
                     leads.insert(b);
                     if b > 0x7F {
