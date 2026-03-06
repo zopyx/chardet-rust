@@ -57,7 +57,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.13t", "3.14t"]
+        # PyO3 0.23 currently supports free-threaded up to CPython 3.13t.
+        python-version: ["3.13t"]
         os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
