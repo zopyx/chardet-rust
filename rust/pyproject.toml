@@ -9,6 +9,7 @@ description = "Universal character encoding detector - Rust implementation"
 # readme = "README.md"
 license = {text = "LGPL-2.1-or-later"}
 requires-python = ">=3.10"
+maintainers = [{ name = "Andreas Jung", email = "info@zopyx.com" }]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",

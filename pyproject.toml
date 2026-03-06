@@ -8,8 +8,7 @@ keywords = ["encoding", "charset", "detection", "unicode", "chardet"]
 requires-python = ">=3.10"
 authors = [{ name = "Dan Blanchard", email = "dan.blanchard@gmail.com" }]
 maintainers = [
-  { name = "Dan Blanchard", email = "dan.blanchard@gmail.com" },
-  { name = "Ian Cordasco" },
+  { name = "Andreas Jung", email = "info@zopyx.com" },
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
