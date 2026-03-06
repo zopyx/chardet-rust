@@ -1,26 +1,21 @@
-# chardet
+# chardet-rust
 
-Universal character encoding detector.
+Universal character encoding detector — Rust-powered fork of [chardet 7.0](https://github.com/chardet/chardet).
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Documentation](https://readthedocs.org/projects/chardet/badge/?version=latest)](https://chardet.readthedocs.io)
-[![codecov](https://codecov.io/github/chardet/chardet/branch/main/graph/badge.svg?token=m5ZQrMd3vk)](https://codecov.io/github/chardet/chardet)
+[![PyPI](https://img.shields.io/pypi/v/chardet-rust)](https://pypi.org/project/chardet-rust/)
 
-chardet 7.0 is a ground-up, MIT-licensed rewrite of [chardet](https://github.com/chardet/chardet).
-Same package name, same public API — drop-in replacement for chardet 5.x/6.x, just much faster and more accurate.
-The detection engine is reimplemented in Rust and exposed to Python via PyO3.
-Python 3.10+.
+> [!NOTE]
+> This is a fork of the [chardet 7.0 Rust rewrite](https://github.com/chardet/chardet).
+> It is published as `chardet-rust` on PyPI and is **not** an official release of the upstream `chardet` project.
 
 > [!WARNING]
-> This Rust reimplementation is an AI experiment.
-> It is not an official upstream replacement.
+> The upstream chardet 7.0 rewrite is an AI experiment and is not an official upstream replacement.
 
-## Why chardet 7.0?
+## Performance (from upstream chardet 7.0)
 
 **98.1% accuracy** on 2,510 test files. **43x faster** than chardet 6.0.0
-and **6.8x faster** than
-charset-normalizer. **Language
-detection** for every result. **MIT licensed.**
+and **6.8x faster** than charset-normalizer. **Language detection** for every result. **MIT licensed.**
 
 |                        | chardet 7.0 (Rust core) | chardet 6.0.0 | [charset-normalizer] |
 | ---------------------- | :----------------------: | :-----------: | :------------------: |
@@ -38,7 +33,7 @@ detection** for every result. **MIT licensed.**
 ## Installation
 
 ```bash
-pip install chardet
+pip install chardet-rust
 ```
 
 For source builds (or editable local development), install a Rust toolchain as
@@ -127,7 +122,7 @@ chardetect --minimal somefile.txt
 cat somefile.txt | chardetect
 ```
 
-## What's New in 7.0
+## What's in chardet 7.0 (upstream)
 
 - **Rust reimplementation of the detector core** — the full detection pipeline is implemented in `rust/src` and exposed to Python via `chardet_rs._chardet_rs` (PyO3)
 - **Python API compatibility layer** — `detect()`, `detect_all()`, `UniversalDetector`, and `chardetect` keep the familiar chardet API while delegating execution to Rust
@@ -139,13 +134,9 @@ cat somefile.txt | chardetect
 - **`EncodingEra` filtering** — scope detection to modern web encodings, legacy ISO/Mac/DOS, mainframe, or all
 - **Thread-safe detection calls** — `detect()` and `detect_all()` are safe to call concurrently; free-threaded execution is covered in CI for Python 3.13t
 
-## Documentation
-
-Full documentation is available at [chardet.readthedocs.io](https://chardet.readthedocs.io).
-
 ## License Discussion
 
-There is an active licensing dispute around this AI-assisted rewrite.
+There is an active licensing dispute around the upstream chardet 7.0 AI-assisted rewrite.
 
 ### Timeline
 
