@@ -13,35 +13,41 @@ pub fn detect_markup_charset(data: &[u8]) -> Option<DetectionResult> {
     let head = &data[..data.len().min(SCAN_LIMIT)];
     
     // Check for XML encoding declaration
-    if let Some(encoding) = detect_xml_encoding(head) {
-        if validate_bytes(data, &encoding) {
-            return Some(DetectionResult::new(
-                Some(&encoding),
-                DETERMINISTIC_CONFIDENCE,
-                None,
-            ));
+    if let Some(raw_encoding) = detect_xml_encoding(head) {
+        if let Some(encoding) = normalize_declared_encoding(&raw_encoding) {
+            if validate_bytes(data, &encoding) {
+                return Some(DetectionResult::new(
+                    Some(&encoding),
+                    DETERMINISTIC_CONFIDENCE,
+                    None,
+                ));
+            }
         }
     }
     
     // Check for HTML5 charset meta tag
-    if let Some(encoding) = detect_html5_charset(head) {
-        if validate_bytes(data, &encoding) {
-            return Some(DetectionResult::new(
-                Some(&encoding),
-                DETERMINISTIC_CONFIDENCE,
-                None,
-            ));
+    if let Some(raw_encoding) = detect_html5_charset(head) {
+        if let Some(encoding) = normalize_declared_encoding(&raw_encoding) {
+            if validate_bytes(data, &encoding) {
+                return Some(DetectionResult::new(
+                    Some(&encoding),
+                    DETERMINISTIC_CONFIDENCE,
+                    None,
+                ));
+            }
         }
     }
     
     // Check for HTML4 content-type meta tag
-    if let Some(encoding) = detect_html4_charset(head) {
-        if validate_bytes(data, &encoding) {
-            return Some(DetectionResult::new(
-                Some(&encoding),
-                DETERMINISTIC_CONFIDENCE,
-                None,
-            ));
+    if let Some(raw_encoding) = detect_html4_charset(head) {
+        if let Some(encoding) = normalize_declared_encoding(&raw_encoding) {
+            if validate_bytes(data, &encoding) {
+                return Some(DetectionResult::new(
+                    Some(&encoding),
+                    DETERMINISTIC_CONFIDENCE,
+                    None,
+                ));
+            }
         }
     }
     
@@ -130,7 +136,9 @@ fn detect_html5_charset(data: &[u8]) -> Option<String> {
                 if has_quote && (c == b'"' || c == b'\'') {
                     break;
                 }
-                if !has_quote && (c == b' ' || c == b'>' || c == b';') {
+                if !has_quote
+                    && (c == b' ' || c == b'>' || c == b';' || c == b'"' || c == b'\'')
+                {
                     break;
                 }
                 i += 1;
@@ -224,6 +232,24 @@ fn find_case_insensitive(data: &[u8], pattern: &[u8]) -> Option<usize> {
     let data_lower = data.to_ascii_lowercase();
     let pattern_lower: Vec<u8> = pattern.iter().map(|&b| b.to_ascii_lowercase()).collect();
     find_subsequence(&data_lower, &pattern_lower)
+}
+
+fn normalize_declared_encoding(raw: &str) -> Option<String> {
+    let normalized = raw
+        .trim()
+        .trim_matches(|c| c == '"' || c == '\'')
+        .to_ascii_lowercase();
+
+    if normalized.is_empty() {
+        return None;
+    }
+
+    let canonical = match normalized.as_str() {
+        "x-sjis" | "shift-jis" | "shift_jis" | "sjis" => "cp932",
+        _ => normalized.as_str(),
+    };
+
+    Some(canonical.to_string())
 }
 
 fn validate_bytes(data: &[u8], encoding: &str) -> bool {

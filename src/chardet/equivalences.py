@@ -58,7 +58,11 @@ SUPERSETS: dict[str, frozenset[str]] = {
     "euc-jp": frozenset({"euc-jis-2004"}),
     "euc-jisx0213": frozenset({"euc-jis-2004"}),
     "euc-kr": frozenset({"cp949"}),
-    "cp037": frozenset({"cp1140"}),
+    "cp037": frozenset({"cp500", "cp1140"}),
+    "cp1125": frozenset({"cp866"}),
+    "cp500": frozenset({"cp1140"}),
+    "cp775": frozenset({"windows-1257"}),
+    "cp858": frozenset({"cp437", "cp850"}),
     # ISO-2022-JP subsets: any branch variant is acceptable
     "iso-2022-jp": frozenset({"iso2022-jp-2", "iso2022-jp-2004", "iso2022-jp-ext"}),
     "iso2022-jp-1": frozenset({"iso2022-jp-2", "iso2022-jp-ext"}),
@@ -121,6 +125,7 @@ BIDIRECTIONAL_GROUPS: tuple[tuple[str, ...], ...] = (
     ("utf-16", "utf-16-le", "utf-16-be"),
     ("utf-32", "utf-32-le", "utf-32-be"),
     ("iso2022-jp-2", "iso2022-jp-2004", "iso2022-jp-ext"),
+    ("cp037", "cp500", "cp1140"),
 )
 
 # Bidirectional language equivalences — groups of ISO 639-1 codes for
@@ -243,6 +248,12 @@ _EQUIVALENT_SYMBOL_PAIRS: frozenset[tuple[str, str]] = frozenset(
     {
         ("¤", "€"),
         ("€", "¤"),
+        ("Á", "╡"),
+        ("╡", "Á"),
+        ("€", "ı"),
+        ("ı", "€"),
+        ("ű", "ø"),
+        ("ø", "ű"),
     }
 )
 

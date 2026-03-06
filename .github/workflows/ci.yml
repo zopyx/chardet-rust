@@ -39,7 +39,11 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: uv sync
+      - uses: dtolnay/rust-toolchain@stable
+      - run: uv pip install -e rust
       - run: uv run pytest tests/ -q --tb=short --ignore=tests/test_accuracy.py --cov --cov-report=xml --cov-report=term-missing
+        env:
+          PYTHONPATH: rust
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.14' && matrix.os == 'ubuntu-latest'
         uses: codecov/codecov-action@v5
@@ -63,9 +67,17 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: uv sync
+      - uses: dtolnay/rust-toolchain@stable
+      - run: uv pip install -e rust
       - name: Verify GIL is disabled
         run: uv run python -c "import sys; assert not sys._is_gil_enabled(), 'GIL is not disabled'"
+        env:
+          PYTHONPATH: rust
       - name: Run thread-safety tests
         run: uv run pytest tests/test_thread_safety.py -v -s -W error::pytest.PytestUnhandledThreadExceptionWarning
+        env:
+          PYTHONPATH: rust
       - name: Run full test suite
         run: uv run pytest tests/ -q --tb=short --ignore=tests/test_accuracy.py --cov --cov-report=term-missing
+        env:
+          PYTHONPATH: rust
