@@ -59,7 +59,6 @@ fn is_valid_shift_jis(data: &[u8]) -> bool {
     let mut valid_pairs = 0;
     let mut valid_single = 0;
     let mut invalid_sequences = 0;
-    let mut high_byte_count = 0;
 
     while i < data.len() {
         let b = data[i];
@@ -67,8 +66,6 @@ fn is_valid_shift_jis(data: &[u8]) -> bool {
             i += 1;
             continue;
         }
-
-        high_byte_count += 1;
 
         // Single-byte half-width katakana: 0xA0-0xDF (valid in CP932)
         if (0xA0..=0xDF).contains(&b) {

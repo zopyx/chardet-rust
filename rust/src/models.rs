@@ -1,6 +1,5 @@
 //! Model loading and bigram scoring utilities.
 
-use crate::pipeline::DetectionResult;
 use crate::registry::REGISTRY;
 
 /// Check if the encoding has language variants.

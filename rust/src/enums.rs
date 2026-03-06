@@ -1,7 +1,6 @@
 //! Enumerations for chardet.
 
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyInt, PyList, PyType};
 
 /// Bit flags representing encoding eras for filtering detection candidates.
 #[pyclass(eq, eq_int, rename_all = "SCREAMING_SNAKE_CASE")]
@@ -107,6 +106,7 @@ impl Default for EncodingEra {
 /// Accepted but not used — the pipeline does not filter by language group.
 #[pyclass(eq, eq_int)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[allow(non_camel_case_types)]
 pub enum LanguageFilter {
     CHINESE_SIMPLIFIED = 0x01,
     CHINESE_TRADITIONAL = 0x02,

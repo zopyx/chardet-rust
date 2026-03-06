@@ -191,7 +191,6 @@ fn detect_html4_charset(data: &[u8]) -> Option<String> {
             i += 1;
 
             // Find charset= within the content
-            let content_start = i;
             let mut found = false;
             while i < after_content.len() && after_content[i] != quote {
                 if after_content[i..].starts_with(b"charset=") {

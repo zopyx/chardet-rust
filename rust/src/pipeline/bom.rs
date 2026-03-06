@@ -1,6 +1,6 @@
 //! Stage 1a: BOM (Byte Order Mark) detection.
 
-use super::{DetectionResult, DETERMINISTIC_CONFIDENCE};
+use super::DetectionResult;
 
 // Ordered longest-first so UTF-32 is checked before UTF-16
 const BOMS: &[(&[u8], &str)] = &[

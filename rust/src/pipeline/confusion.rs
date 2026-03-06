@@ -142,12 +142,6 @@ pub fn resolve_confusion_groups(
                 } else {
                     enc2
                 };
-                let loser = if enc1.starts_with("windows-") {
-                    enc2
-                } else {
-                    enc1
-                };
-
                 if winner == enc2 {
                     // Swap results
                     let mut new_results = results.clone();

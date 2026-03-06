@@ -4,7 +4,6 @@ use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
 use crate::enums::{EncodingEra, LanguageFilter};
-use crate::equivalences::apply_legacy_rename;
 use crate::pipeline::orchestrator::run_pipeline;
 use crate::pipeline::{DetectionResult, DEFAULT_MAX_BYTES};
 

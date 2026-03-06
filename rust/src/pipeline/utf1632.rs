@@ -13,9 +13,6 @@ const MIN_BYTES_UTF16: usize = 10; // 5 full code units
 // Minimum fraction of null bytes in the expected position for UTF-16.
 const UTF16_MIN_NULL_FRACTION: f64 = 0.03;
 
-// Minimum text-quality score to accept a UTF-16 candidate
-const MIN_TEXT_QUALITY: f64 = 0.5;
-
 /// Detect UTF-32 or UTF-16 encoding from null-byte patterns.
 pub fn detect_utf1632_patterns(data: &[u8]) -> Option<DetectionResult> {
     let sample = &data[..data.len().min(SAMPLE_SIZE)];

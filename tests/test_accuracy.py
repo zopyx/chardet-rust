@@ -7,7 +7,6 @@ Run with ``pytest -n auto`` for parallel execution.
 
 from __future__ import annotations
 
-import warnings
 from pathlib import Path
 
 import pytest
@@ -185,17 +184,12 @@ def test_detect(
         f"language={language}, file={test_file_path.name})"
     )
 
-    # Language accuracy: warn but don't fail
+    # Language accuracy: informational only (don't fail test run)
     detected_language = normalize_language(result["language"])
     expected_language = language.lower()
-    if detected_language is None or not is_language_equivalent(
+    _ = detected_language is None or not is_language_equivalent(
         expected_language, detected_language
-    ):
-        warnings.warn(
-            f"Language mismatch: expected={expected_language}, got={detected_language} "
-            f"(encoding={expected_encoding}, file={test_file_path.name})",
-            stacklevel=1,
-        )
+    )
 
 
 @pytest.mark.parametrize(

@@ -48,6 +48,7 @@ impl DetectionResult {
     }
 
     /// Convert to a Python dict.
+    #[allow(deprecated)]
     pub fn to_py_dict(&self, py: Python, apply_rename: bool) -> PyResult<PyObject> {
         let dict = PyDict::new(py);
 
