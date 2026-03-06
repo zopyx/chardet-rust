@@ -29,6 +29,20 @@ fn has_koi8u_distinguishing_bytes(data: &[u8]) -> bool {
     data.iter().any(|&b| koi8u_bytes.contains(&b))
 }
 
+/// Check if the data contains bytes that distinguish ISO-8859-16 from ISO-8859-1
+/// (South-Eastern European characters for Romanian, Croatian, etc.).
+fn has_iso8859_16_distinguishing_bytes(data: &[u8]) -> bool {
+    // ISO-8859-16 specific bytes:
+    // 0xA1 = Ą, 0xA2 = ą, 0xA3 = Ł, 0xA6 = Ș, 0xA9 = Œ
+    // 0xAA = ő, 0xAB = Ő, 0xAC = Ĳ, 0xB1 = ą, 0xB2 = Ł
+    // 0xB3 = ł, 0xB6 = ș, 0xB9 = œ, 0xBA = ő, 0xBB = ő, 0xBC = ĳ
+    let iso8859_16_bytes: &[u8] = &[
+        0xA1, 0xA2, 0xA3, 0xA6, 0xA9, 0xAA, 0xAB, 0xAC,
+        0xB1, 0xB2, 0xB3, 0xB6, 0xB9, 0xBA, 0xBB, 0xBC
+    ];
+    data.iter().any(|&b| iso8859_16_bytes.contains(&b))
+}
+
 /// Get the language from the top result
 fn get_top_language(results: &[DetectionResult]) -> Option<&str> {
     results.first().and_then(|r| r.language.as_deref())
@@ -83,6 +97,22 @@ pub fn resolve_confusion_groups(
             // Prefer KOI8-U if it has Ukrainian-specific bytes
             // enc1 is top, enc2 is second - we want KOI8-U to be top
             if enc1 == "koi8-r" && enc2 == "koi8-u" {
+                let mut new_results = results.clone();
+                new_results.swap(0, 1);
+                return new_results;
+            }
+        }
+        
+        // Special case: ISO-8859-16 vs ISO-8859-1 confusion
+        // ISO-8859-16 is for South-Eastern European languages (Romanian, Croatian, etc.)
+        let is_iso8859_16_confusion = 
+            (enc1 == "iso-8859-1" && enc2 == "iso-8859-16") ||
+            (enc1 == "iso-8859-16" && enc2 == "iso-8859-1");
+        
+        if is_iso8859_16_confusion && has_iso8859_16_distinguishing_bytes(data) {
+            // Prefer ISO-8859-16 if it has distinguishing bytes
+            // enc1 is top, enc2 is second - we want ISO-8859-16 to be top
+            if enc1 == "iso-8859-1" && enc2 == "iso-8859-16" {
                 let mut new_results = results.clone();
                 new_results.swap(0, 1);
                 return new_results;
