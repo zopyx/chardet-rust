@@ -104,7 +104,8 @@ fn analyze_shift_jis(data: &[u8]) -> (f64, usize, usize) {
     let mut i = 0;
     while i < data.len() {
         let b = data[i];
-        if (0x81..=0x9F).contains(&b) || (0xE0..=0xEF).contains(&b) {
+        // Lead bytes: 0x81-0x9F, 0xE0-0xFC (includes 0xF0-0xFC for CP932 extended)
+        if (0x81..=0x9F).contains(&b) || (0xE0..=0xFC).contains(&b) {
             lead_count += 1;
             if i + 1 < data.len() {
                 let trail = data[i + 1];

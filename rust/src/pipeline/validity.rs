@@ -58,28 +58,68 @@ fn is_valid_multibyte(data: &[u8], encoding: &str) -> bool {
 
 fn is_valid_shift_jis(data: &[u8]) -> bool {
     let mut i = 0;
+    let mut valid_pairs = 0;
+    let mut valid_single = 0;
+    let mut invalid_sequences = 0;
+    let mut high_byte_count = 0;
+    
     while i < data.len() {
         let b = data[i];
         if b < 0x80 {
             i += 1;
             continue;
         }
-        // Lead bytes: 0x81-0x9F, 0xE0-0xEF
-        if (0x81..=0x9F).contains(&b) || (0xE0..=0xEF).contains(&b) {
+        
+        high_byte_count += 1;
+        
+        // Single-byte half-width katakana: 0xA0-0xDF (valid in CP932)
+        if (0xA0..=0xDF).contains(&b) {
+            valid_single += 1;
+            i += 1;
+            continue;
+        }
+        
+        // Lead bytes: 0x81-0x9F, 0xE0-0xFC (includes 0xF0-0xFC for CP932 extended)
+        if (0x81..=0x9F).contains(&b) || (0xE0..=0xFC).contains(&b) {
             if i + 1 >= data.len() {
-                return true; // Truncated at end is OK
+                // Truncated at end - count as valid
+                valid_pairs += 1;
+                break;
             }
             let trail = data[i + 1];
             // Trail bytes: 0x40-0x7E, 0x80-0xFC
-            if !((0x40..=0x7E).contains(&trail) || (0x80..=0xFC).contains(&trail)) {
-                return false;
+            if (0x40..=0x7E).contains(&trail) || (0x80..=0xFC).contains(&trail) {
+                valid_pairs += 1;
+                i += 2;
+            } else if trail == 0x0A || trail == 0x0D {
+                // Line break after lead - might be split character
+                invalid_sequences += 1;
+                i += 1; // Only advance by 1 to check the control char next
+            } else {
+                // Invalid trail byte
+                invalid_sequences += 1;
+                i += 2;
             }
-            i += 2;
         } else {
-            // Invalid lead byte
-            return false;
+            // This is a high byte that's not a valid lead byte or single-byte char
+            // (could be a trail byte in a valid sequence that we started mid-way)
+            invalid_sequences += 1;
+            i += 1;
         }
     }
+    
+    // Need at least some valid sequences to consider it valid Shift_JIS
+    let total_valid = valid_pairs + valid_single;
+    if total_valid < 2 {
+        return false;
+    }
+    
+    // Allow up to 30% invalid sequences
+    let total = total_valid + invalid_sequences;
+    if total > 0 && (invalid_sequences as f64) / (total as f64) > 0.30 {
+        return false;
+    }
+    
     true
 }
 
