@@ -53,8 +53,9 @@ where = ["src"]
 # The extension will be available as chardet_rs._chardet_rs
 
 [[tool.setuptools-rust.ext-modules]]
-# The full Python module path where the extension will be available
-name = "chardet_rs._chardet_rs"
+# The Rust target name (from Cargo.toml [lib] name = "_chardet_rs")
+# This will create the extension at chardet_rs._chardet_rs
+target = "_chardet_rs"
 # Path to Cargo.toml
 path = "rust/Cargo.toml"
 # PyO3 binding (default)
