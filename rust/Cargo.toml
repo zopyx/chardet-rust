@@ -1,11 +1,11 @@
 [package]
 name = "chardet-rs"
-version = "0.1"
+version = "0.1.1"
 edition = "2021"
 authors = ["Dan Blanchard <dan.blanchard@gmail.com>"]
 license = "MIT"
 description = "Universal character encoding detector - Rust implementation with Python bindings"
-repository = "https://github.com/chardet/chardet"
+repository = "https://github.com/zopyx/chardet-rust"
 
 [lib]
 name = "_chardet_rs"
