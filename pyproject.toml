@@ -47,7 +47,6 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
-exclude = ["chardet_rs*"]
 
 # Version set statically to 0.1
 
