@@ -19,7 +19,7 @@ from chardet_rs._chardet_rs import (
 from chardet._utils import _validate_max_bytes
 
 # Version info - keep in sync with pyproject.toml
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 from chardet.enums import (
     EncodingEra,
     LanguageFilter,
