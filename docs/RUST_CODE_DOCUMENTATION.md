@@ -460,7 +460,7 @@ results = chardet_rs.detect_all(data, ignore_threshold=False)
 ```toml
 [package]
 name = "chardet-rs"
-version = "0.1.8"
+version = "0.1.9"
 edition = "2021"
 
 [lib]
