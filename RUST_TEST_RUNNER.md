@@ -96,29 +96,50 @@ rust/tests/
 
 ## Accuracy Test Status
 
-The Rust accuracy tests are **functional but not yet at parity** with Python:
+The Rust accuracy tests are **functional but not yet at full parity** with Python:
 
 | Metric | Python | Rust | Status |
 |--------|--------|------|--------|
 | Files tested | 2,464 | 2,464 | ✅ |
-| Accuracy | ~95%+ | 54.6% | ⚠️ |
+| Accuracy | ~95%+ | **68.7%** | ⚠️ |
 | Known failures handled | ✅ | ✅ | ✅ |
+| Superset relationships | ✅ | ✅ | ✅ |
+| Bidirectional groups | ✅ | ✅ | ✅ |
+| Character-level equivalence | ✅ | ✅ | ✅ |
 
-### Why Lower Accuracy?
+### Why Not Full Parity?
 
-The Python `is_correct()` function has sophisticated equivalence checking:
-1. **Bidirectional byte-order groups** - Not yet ported
-2. **Character-level equivalence** - e.g., ¤ ↔ €, Á ↔ ╡  
-3. **Superset relationships** via `_NORMALIZED_SUPERSETS`
+The Rust implementation has all the equivalence logic from Python, but:
 
-The Rust version currently only handles basic encoding name equivalences (e.g., "utf-8" ↔ "utf8", "shift_jis" ↔ "cp932").
+1. **encoding_rs doesn't support all legacy encodings**:
+   - `macroman` (Mac OS Roman)
+   - `hp-roman8` (HP Roman-8)
+   - `cp1125` (Ukrainian)
+   - Various EBCDIC codepages
 
-### Next Steps for Accuracy
+2. **Some statistical model differences** remain between Python and Rust implementations
 
-To achieve parity with Python tests, port the equivalences module:
-- `equivalences.rs` - `is_correct()`, `is_equivalent_detection()`
-- Character normalization and symbol equivalence tables
-- Bidirectional encoding group mappings
+### Accuracy Breakdown
+
+- **Passing**: 1,693 files (68.7%)
+- **Known failures**: 46 files (skipped)
+- **Remaining failures**: 725 files (mostly legacy encodings)
+
+Files that fail often involve:
+- Mac encodings (`macroman-*`, `maccyrillic-*`)
+- HP Roman-8 (`hp-roman8-*`)
+- Some Baltic/Scandinavian encodings (`cp775`, `cp858`)
+- EBCDIC variants
+
+### Testing Parity Achieved
+
+| Feature | Python | Rust |
+|---------|--------|------|
+| Unit tests (BOM, UTF-8, ASCII, Binary) | ✅ | ✅ 63 tests |
+| API tests (detect, detect_all) | ✅ | ✅ 21 tests |
+| Accuracy tests (2,464 files) | ✅ | ✅ 68.7% pass |
+| Equivalence checking | ✅ | ✅ Full logic |
+| Known failure handling | ✅ | ✅ 46 xfail |
 
 ## Implementation Plan
 
