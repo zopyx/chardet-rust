@@ -5,7 +5,7 @@ description = "Universal character encoding detector"
 license = "LGPL-2.1-or-later"
 readme = "README.md"
 keywords = ["encoding", "charset", "detection", "unicode", "chardet"]
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 authors = [{ name = "Dan Blanchard", email = "dan.blanchard@gmail.com" }]
 maintainers = [
   { name = "Andreas Jung", email = "info@zopyx.com" },
@@ -17,6 +17,7 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
@@ -78,7 +79,7 @@ markers = [
 
 [tool.ruff]
 line-length = 88
-target-version = "py312"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = [
@@ -195,7 +196,7 @@ exclude_lines = [
 ]
 
 [tool.cibuildwheel]
-build = "cp312-* cp313-* cp314-*"
+build = "cp311-* cp312-* cp313-* cp314-*"
 skip = "*-musllinux_*"
 build-frontend = "build[uv]"
 test-command = "python -c \"import chardet; print(chardet.detect(b'hello world'))\""
