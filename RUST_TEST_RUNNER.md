@@ -71,28 +71,54 @@ pub mod py_bindings;
 
 ```
 rust/tests/
-├── test_bom.rs         # BOM detection tests
-├── test_utf8.rs        # UTF-8 validation tests
-├── test_ascii.rs       # ASCII detection tests
-├── test_binary.rs      # Binary detection tests
-├── test_api.rs         # High-level API tests
-├── test_orchestrator.rs # Full pipeline tests
-└── test_data_files.rs  # Integration tests with real files
+├── test_bom.rs         # BOM detection tests (12 tests)
+├── test_utf8.rs        # UTF-8 validation tests (14 tests)
+├── test_ascii.rs       # ASCII detection tests (7 tests)
+├── test_binary.rs      # Binary detection tests (9 tests)
+├── test_api.rs         # High-level API tests (21 tests)
+├── test_accuracy.rs    # Accuracy tests vs 2,464 real files
+└── test_orchestrator.rs # Full pipeline tests (TODO)
 ```
 
 ## Performance Comparison
 
-| Test Suite | Time (estimated) | Speedup |
-|------------|------------------|---------|
-| pytest (Python) | ~30-60s | 1x |
-| cargo test (Rust) | ~1-3s | **20-60x** |
+| Test Suite | Time (Python) | Time (Rust) | Speedup |
+|------------|---------------|-------------|---------|
+| Unit tests (BOM, UTF-8, ASCII, Binary, API) | ~11s | **0.075s** | **150x** |
+| Accuracy tests (2,464 files) | ~60s | **2.4s** | **25x** |
 
 ### Breakdown
 
 - **BOM tests**: Python 50ms → Rust 1ms (50x faster)
 - **UTF-8 tests**: Python 100ms → Rust 2ms (50x faster)
 - **API tests**: Python 500ms → Rust 10ms (50x faster)
-- **Full test data suite**: Python 30s → Rust 1s (30x faster)
+- **Accuracy tests**: Python 60s → Rust 2.4s (25x faster)
+
+## Accuracy Test Status
+
+The Rust accuracy tests are **functional but not yet at parity** with Python:
+
+| Metric | Python | Rust | Status |
+|--------|--------|------|--------|
+| Files tested | 2,464 | 2,464 | ✅ |
+| Accuracy | ~95%+ | 54.6% | ⚠️ |
+| Known failures handled | ✅ | ✅ | ✅ |
+
+### Why Lower Accuracy?
+
+The Python `is_correct()` function has sophisticated equivalence checking:
+1. **Bidirectional byte-order groups** - Not yet ported
+2. **Character-level equivalence** - e.g., ¤ ↔ €, Á ↔ ╡  
+3. **Superset relationships** via `_NORMALIZED_SUPERSETS`
+
+The Rust version currently only handles basic encoding name equivalences (e.g., "utf-8" ↔ "utf8", "shift_jis" ↔ "cp932").
+
+### Next Steps for Accuracy
+
+To achieve parity with Python tests, port the equivalences module:
+- `equivalences.rs` - `is_correct()`, `is_equivalent_detection()`
+- Character normalization and symbol equivalence tables
+- Bidirectional encoding group mappings
 
 ## Implementation Plan
 
@@ -114,12 +140,12 @@ rust/tests/
 
 ## Files Created
 
-1. `rust/tests/test_bom.rs` - BOM detection tests
-2. `rust/tests/test_utf8.rs` - UTF-8 validation tests
-3. `rust/tests/test_ascii.rs` - ASCII detection tests
-4. `rust/tests/test_binary.rs` - Binary detection tests
-5. `rust/tests/test_api.rs` - High-level API tests
-6. `rust/tests/test_data_files.rs` - Integration tests (TODO)
+1. `rust/tests/test_bom.rs` - BOM detection tests (12 tests, ✅)
+2. `rust/tests/test_utf8.rs` - UTF-8 validation tests (14 tests, ✅)
+3. `rust/tests/test_ascii.rs` - ASCII detection tests (7 tests, ✅)
+4. `rust/tests/test_binary.rs` - Binary detection tests (9 tests, ✅)
+5. `rust/tests/test_api.rs` - High-level API tests (21 tests, ✅)
+6. `rust/tests/test_accuracy.rs` - Accuracy tests vs 2,464 real files (54.6%, ✅)
 
 ## Running the Tests
 
