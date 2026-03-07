@@ -27,6 +27,7 @@ from chardet.registry import REGISTRY
 # tracked for future improvement.  Kept sorted for easy diffing.
 # ---------------------------------------------------------------------------
 
+
 def _load_known_failures(filename: str) -> frozenset[str]:
     path = Path(__file__).with_name(filename)
     entries: set[str] = set()
@@ -37,9 +38,7 @@ def _load_known_failures(filename: str) -> frozenset[str]:
     return frozenset(entries)
 
 
-_KNOWN_FAILURES: frozenset[str] = _load_known_failures(
-    "known_accuracy_failures.txt"
-)
+_KNOWN_FAILURES: frozenset[str] = _load_known_failures("known_accuracy_failures.txt")
 
 # Known failures when testing with era-filtered detection.
 # Some overlap with _KNOWN_FAILURES (hard files that fail either way),

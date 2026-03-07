@@ -26,7 +26,7 @@ import signal
 import struct
 import time
 import unicodedata
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from confusion_training import (
@@ -571,7 +571,7 @@ def _write_training_metadata(
     The YAML is written manually (no PyYAML dependency) since the structure
     is flat enough to emit directly.
     """
-    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     lines: list[str] = [
         f'training_date: "{timestamp}"',

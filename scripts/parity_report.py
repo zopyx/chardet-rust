@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from utils import collect_test_files  # noqa: E402
+from utils import collect_test_files
 
 
 def load_known_failures(path: Path) -> set[str]:
