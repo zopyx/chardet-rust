@@ -1,2 +1,3 @@
 recursive-include rust *.rs *.toml *.lock
 include rust/Cargo.toml
+recursive-include src/chardet/models *.bin
