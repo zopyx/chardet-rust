@@ -60,7 +60,7 @@ _LANGUAGE_FILTER_MAP: dict[LanguageFilter, _LanguageFilter] = {
     LanguageFilter.NON_CJK: _LanguageFilter.NON_CJK,
     LanguageFilter.ALL: _LanguageFilter.ALL,
     LanguageFilter.CHINESE: _LanguageFilter.CHINESE,
-    LanguageFilter.CJK: _LanguageFilter.CJK,
+    LanguageFilter.CJK: _LanguageFilter.ALL_CJK,
 }
 
 

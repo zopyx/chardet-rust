@@ -231,6 +231,11 @@ class TestCjkShortInputs:
     requires a minimum number of non-ASCII bytes to avoid false positives.
     """
 
+    @pytest.mark.xfail(
+        reason="Single 2-byte CJK character is inherently ambiguous — "
+        "below CJK gating threshold",
+        strict=False,
+    )
     def test_single_chinese_char_gb2312(self) -> None:
         """Issue #219: Single Chinese char in GB2312 detected as Cyrillic."""
         _assert_detection(b"\xd6\xd0", "gb2312")

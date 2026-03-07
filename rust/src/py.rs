@@ -94,26 +94,25 @@ fn _models_loaded() -> bool {
 }
 
 /// Language filter for limiting detection to specific languages.
-#[pyclass(eq, eq_int)]
+#[pyclass(eq, eq_int, rename_all = "SCREAMING_SNAKE_CASE")]
 #[derive(Clone, Copy, PartialEq, Debug)]
-#[allow(clippy::upper_case_acronyms)]
 pub enum LanguageFilter {
     /// All languages.
-    ALL = 0,
+    All = 0,
     /// Chinese Simplified.
-    CHINESE_SIMPLIFIED = 1,
+    ChineseSimplified = 1,
     /// Chinese Traditional.
-    CHINESE_TRADITIONAL = 2,
+    ChineseTraditional = 2,
     /// Japanese.
-    JAPANESE = 3,
+    Japanese = 3,
     /// Korean.
-    KOREAN = 4,
+    Korean = 4,
     /// Non-CJK languages.
-    NON_CJK = 5,
+    NonCjk = 5,
     /// All Chinese.
-    CHINESE = 6,
+    Chinese = 6,
     /// All CJK.
-    ALL_CJK = 7,
+    AllCjk = 7,
 }
 
 /// UniversalDetector for streaming detection.
@@ -126,6 +125,7 @@ struct UniversalDetector {
     max_bytes: usize,
     buffer: Vec<u8>,
     done: bool,
+    closed: bool,
     result: Option<DetectionResult>,
 }
 
@@ -141,18 +141,25 @@ impl UniversalDetector {
         max_bytes: usize,
     ) -> Self {
         UniversalDetector {
-            lang_filter: lang_filter.unwrap_or(LanguageFilter::ALL),
+            lang_filter: lang_filter.unwrap_or(LanguageFilter::All),
             should_rename_legacy,
             encoding_era: encoding_era.unwrap_or(EncodingEra::All),
             max_bytes,
             buffer: Vec::new(),
             done: false,
+            closed: false,
             result: None,
         }
     }
 
     /// Feed a chunk of bytes to the detector.
     fn feed(&mut self, byte_str: &[u8]) -> PyResult<()> {
+        if self.closed {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "UniversalDetector.feed() called after close()"
+            ));
+        }
+        
         if self.done {
             return Ok(());
         }
@@ -174,6 +181,7 @@ impl UniversalDetector {
             self.done = true;
         }
         
+        self.closed = true;
         self.result.as_ref().unwrap().to_py_dict(py, self.should_rename_legacy)
     }
 
@@ -181,6 +189,7 @@ impl UniversalDetector {
     fn reset(&mut self) {
         self.buffer.clear();
         self.done = false;
+        self.closed = false;
         self.result = None;
     }
 
@@ -192,13 +201,17 @@ impl UniversalDetector {
 
     /// Get the current detection result.
     #[getter]
-    fn result<'py>(&self, py: Python<'py>) -> PyResult<Option<PyObject>> {
+    fn result<'py>(&self, py: Python<'py>) -> PyResult<PyObject> {
         match &self.result {
-            Some(r) => {
-                let dict = r.to_py_dict(py, self.should_rename_legacy)?;
-                Ok(Some(dict))
+            Some(r) => r.to_py_dict(py, self.should_rename_legacy),
+            None => {
+                // Return default result dict when not yet closed
+                let dict = pyo3::types::PyDict::new(py);
+                dict.set_item("encoding", py.None())?;
+                dict.set_item("confidence", 0.0_f64)?;
+                dict.set_item("language", py.None())?;
+                Ok(dict.into())
             }
-            None => Ok(None),
         }
     }
 }
