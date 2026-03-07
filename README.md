@@ -88,6 +88,16 @@ result = detector.close()
 print(result)
 ```
 
+## How It Works
+
+chardet uses a multi-stage detection pipeline that progresses from cheap deterministic checks to more expensive statistical analysis:
+
+![Detection Pipeline](docs/pipeline_infographic.svg)
+
+The pipeline includes: BOM detection, UTF-16/32 pattern analysis, escape sequence detection, binary detection, markup charset extraction, ASCII check, UTF-8 validation, byte validity filtering, CJK structural analysis, statistical scoring with bigram models, and post-processing for confusion resolution.
+
+See the [full documentation](https://chardet-rust.readthedocs.io/) for details.
+
 ### Encoding Era Filtering
 
 Restrict detection to specific encoding eras to reduce false positives:

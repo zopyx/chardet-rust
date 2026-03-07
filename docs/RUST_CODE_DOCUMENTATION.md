@@ -4,6 +4,30 @@
 
 This is a port of the chardet Python library to Rust with Python bindings using PyO3. The library provides universal character encoding detection with a multi-stage pipeline architecture.
 
+## Architecture Diagrams
+
+### Rust Module Architecture
+
+![Rust Architecture](rust_architecture.svg)
+
+The architecture diagram above shows the structure of the `chardet_rs` crate:
+
+- **Public API** (blue): Entry points `detect()` and `detect_all()` exposed to Python
+- **Pipeline Stages** (green): 12 detection stages from BOM detection to statistical scoring
+- **Support Modules** (yellow): Registry, enums, equivalences, and model utilities
+- **Data/Models** (purple): Bigram models and encoding metadata
+
+### Detection Flow Sequence
+
+![Detection Sequence](rust_sequence.svg)
+
+The sequence diagram shows four common detection scenarios:
+
+1. **UTF-8 with BOM**: Early exit at Stage 0 with 1.0 confidence
+2. **Binary file**: Detected by magic numbers or null byte patterns
+3. **Japanese EUC-JP**: Full pipeline execution through structural and statistical analysis
+4. **French Windows-1252**: Single-byte encoding with statistical language detection
+
 ## Documentation Coverage
 
 Every Rust source file now includes comprehensive documentation:

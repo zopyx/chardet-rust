@@ -13,6 +13,15 @@ Rust core.
 Detection Pipeline
 ------------------
 
+.. figure:: pipeline_infographic.svg
+   :alt: Chardet Detection Pipeline
+   :align: center
+   :width: 100%
+
+   Visual overview of the multi-stage encoding detection pipeline. The pipeline
+   progresses from cheap deterministic checks (BOM detection, ASCII) through
+   structural analysis to expensive statistical scoring when needed.
+
 When you call :func:`chardet.detect`, data flows through these stages in
 order:
 
@@ -102,3 +111,12 @@ detection uses three tiers:
 3. **UTF-8 fallback** — For Unicode encodings (UTF-8, UTF-16, UTF-32),
    the detected text is scored against byte-level bigram models for all
    supported languages.
+
+Architecture
+------------
+
+For a detailed view of the Rust implementation architecture, see:
+
+* `Rust Architecture Diagram <rust_architecture.svg>`_ — Module structure and relationships
+* `Detection Sequence Diagram <rust_sequence.svg>`_ — Flow through detection scenarios
+* `RUST_CODE_DOCUMENTATION.md <RUST_CODE_DOCUMENTATION.md>`_ — Complete Rust API documentation
