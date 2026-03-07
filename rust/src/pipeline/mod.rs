@@ -109,7 +109,7 @@ impl DetectionResult {
     /// # Examples
     ///
     /// ```
-    /// use chardet_rs::pipeline::DetectionResult;
+    /// use _chardet_rs::pipeline::DetectionResult;
     ///
     /// let result = DetectionResult::new(Some("utf-8"), 0.99, None);
     /// assert_eq!(result.encoding.as_deref(), Some("utf-8"));
@@ -218,7 +218,7 @@ impl PipelineContext {
     /// # Examples
     ///
     /// ```
-    /// use chardet_rs::pipeline::PipelineContext;
+    /// use _chardet_rs::pipeline::PipelineContext;
     ///
     /// let ctx = PipelineContext::new();
     /// assert!(ctx.analysis_cache.is_empty());

@@ -57,7 +57,7 @@ const SCAN_LIMIT: usize = 4096;
 /// # Examples
 ///
 /// ```
-/// use chardet_rs::pipeline::markup::detect_markup_charset;
+/// use _chardet_rs::pipeline::markup::detect_markup_charset;
 ///
 /// // HTML5 meta charset
 /// let html = b"<html><head><meta charset=\"utf-8\">";

@@ -46,9 +46,9 @@ use crate::registry::EncodingInfo;
 /// # Examples
 ///
 /// ```
-/// use chardet_rs::pipeline::statistical::score_candidates;
-/// use chardet_rs::registry::{REGISTRY, get_candidates};
-/// use chardet_rs::enums::EncodingEra;
+/// use _chardet_rs::pipeline::statistical::score_candidates;
+/// use _chardet_rs::registry::{REGISTRY, get_candidates};
+/// use _chardet_rs::enums::EncodingEra;
 ///
 /// let data = b"Hello, World!";
 /// let candidates = get_candidates(EncodingEra::All);

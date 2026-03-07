@@ -38,9 +38,9 @@ use crate::registry::EncodingInfo;
 /// # Examples
 ///
 /// ```
-/// use chardet_rs::pipeline::validity::filter_by_validity;
-/// use chardet_rs::registry::{REGISTRY, get_candidates};
-/// use chardet_rs::enums::EncodingEra;
+/// use _chardet_rs::pipeline::validity::filter_by_validity;
+/// use _chardet_rs::registry::{REGISTRY, get_candidates};
+/// use _chardet_rs::enums::EncodingEra;
 ///
 /// // Valid ASCII data
 /// let data = b"Hello, World!";

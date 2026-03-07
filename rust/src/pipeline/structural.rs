@@ -63,9 +63,9 @@ pub const CJK_DIVERSITY_MIN_NON_ASCII: usize = 16;
 /// # Examples
 ///
 /// ```
-/// use chardet_rs::pipeline::structural::compute_structural_score;
-/// use chardet_rs::registry::REGISTRY;
-/// use chardet_rs::pipeline::PipelineContext;
+/// use _chardet_rs::pipeline::structural::compute_structural_score;
+/// use _chardet_rs::registry::REGISTRY;
+/// use _chardet_rs::pipeline::PipelineContext;
 ///
 /// let data: Vec<u8> = vec![0x82, 0xA0, 0x82, 0xA2]; // Valid Shift_JIS
 /// let enc_info = REGISTRY.get("shift_jis").unwrap();

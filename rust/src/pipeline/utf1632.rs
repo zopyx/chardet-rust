@@ -68,7 +68,7 @@ const UTF16_MIN_NULL_FRACTION: f64 = 0.03;
 /// # Examples
 ///
 /// ```
-/// use chardet_rs::pipeline::utf1632::detect_utf1632_patterns;
+/// use _chardet_rs::pipeline::utf1632::detect_utf1632_patterns;
 ///
 /// // UTF-16-LE pattern (ASCII with nulls after each char)
 /// let data: Vec<u8> = b"A\x00B\x00C\x00".to_vec();

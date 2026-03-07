@@ -35,7 +35,7 @@ const VARIANT_ENCODINGS: &[&str] = &[
 /// # Examples
 ///
 /// ```
-/// use chardet_rs::models::has_model_variants;
+/// use _chardet_rs::models::has_model_variants;
 ///
 /// assert!(has_model_variants("utf-8"));
 /// assert!(has_model_variants("windows-1252"));
@@ -62,7 +62,7 @@ pub fn has_model_variants(encoding: &str) -> bool {
 /// # Examples
 ///
 /// ```
-/// use chardet_rs::models::infer_language;
+/// use _chardet_rs::models::infer_language;
 ///
 /// assert_eq!(infer_language("windows-1251"), Some("ru"));
 /// assert_eq!(infer_language("shift_jis"), Some("ja"));

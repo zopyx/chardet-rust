@@ -101,7 +101,7 @@ pub fn has_binary_signature(data: &[u8]) -> bool {
 /// # Examples
 ///
 /// ```
-/// use chardet_rs::pipeline::binary::is_binary;
+/// use _chardet_rs::pipeline::binary::is_binary;
 ///
 /// // Text content
 /// assert!(!is_binary(b"Hello, World!\n", 10000));

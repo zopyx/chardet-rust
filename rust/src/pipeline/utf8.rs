@@ -80,7 +80,7 @@ const MB_RATIO_SCALE: f64 = 6.0;
 /// # Examples
 ///
 /// ```
-/// use chardet_rs::pipeline::utf8::detect_utf8;
+/// use _chardet_rs::pipeline::utf8::detect_utf8;
 ///
 /// // Valid UTF-8 with multi-byte chars
 /// let result = detect_utf8("Hello, 世界!".as_bytes());
@@ -194,7 +194,7 @@ pub fn detect_utf8(data: &[u8]) -> Option<DetectionResult> {
 /// # Examples
 ///
 /// ```
-/// use chardet_rs::pipeline::utf8::utf8_sequence_length;
+/// use _chardet_rs::pipeline::utf8::utf8_sequence_length;
 ///
 /// assert_eq!(utf8_sequence_length(0x41), 1); // 'A'
 /// assert_eq!(utf8_sequence_length(0xC3), 2); // Latin chars

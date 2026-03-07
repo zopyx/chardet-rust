@@ -66,7 +66,7 @@ use super::{DetectionResult, DETERMINISTIC_CONFIDENCE};
 /// # Examples
 ///
 /// ```
-/// use chardet_rs::pipeline::escape::detect_escape_encoding;
+/// use _chardet_rs::pipeline::escape::detect_escape_encoding;
 ///
 /// // ISO-2022-JP (ESC $ B)
 /// let iso2022 = b"\x1B$B$H$/$F".to_vec();

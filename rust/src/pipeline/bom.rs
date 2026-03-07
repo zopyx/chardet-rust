@@ -60,7 +60,7 @@ const BOMS: &[(&[u8], &str)] = &[
 /// # Examples
 ///
 /// ```
-/// use chardet_rs::pipeline::bom::detect_bom;
+/// use _chardet_rs::pipeline::bom::detect_bom;
 ///
 /// // UTF-8 BOM
 /// let result = detect_bom(b"\xEF\xBB\xBFHello");
@@ -105,7 +105,7 @@ pub fn detect_bom(data: &[u8]) -> Option<DetectionResult> {
 /// # Examples
 ///
 /// ```
-/// use chardet_rs::pipeline::bom::bom_size;
+/// use _chardet_rs::pipeline::bom::bom_size;
 ///
 /// assert_eq!(bom_size("utf-8-sig"), 3);
 /// assert_eq!(bom_size("utf-16-be"), 2);
@@ -135,7 +135,7 @@ pub fn bom_size(encoding: &str) -> usize {
 /// # Examples
 ///
 /// ```
-/// use chardet_rs::pipeline::bom::strip_bom;
+/// use _chardet_rs::pipeline::bom::strip_bom;
 ///
 /// let data = b"\xEF\xBB\xBFHello";
 /// assert_eq!(strip_bom(data), b"Hello");

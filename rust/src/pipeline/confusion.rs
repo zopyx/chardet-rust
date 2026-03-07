@@ -131,8 +131,8 @@ fn get_top_language(results: &[DetectionResult]) -> Option<&str> {
 /// # Examples
 ///
 /// ```
-/// use chardet_rs::pipeline::confusion::resolve_confusion_groups;
-/// use chardet_rs::pipeline::DetectionResult;
+/// use _chardet_rs::pipeline::confusion::resolve_confusion_groups;
+/// use _chardet_rs::pipeline::DetectionResult;
 ///
 /// // Results with potential ISO-8859-1 vs Windows-1252 confusion
 /// let results = vec![

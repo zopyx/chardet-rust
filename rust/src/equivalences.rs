@@ -87,7 +87,7 @@ static PREFERRED_SUPERSET: Lazy<HashMap<&'static str, &'static str>> = Lazy::new
 /// # Examples
 ///
 /// ```
-/// use chardet_rs::equivalences::apply_legacy_rename;
+/// use _chardet_rs::equivalences::apply_legacy_rename;
 ///
 /// assert_eq!(apply_legacy_rename("iso-8859-1"), "Windows-1252");
 /// assert_eq!(apply_legacy_rename("utf-8"), "utf-8"); // No mapping
@@ -131,7 +131,7 @@ pub fn apply_legacy_rename(encoding: &str) -> String {
 /// # Examples
 ///
 /// ```
-/// use chardet_rs::equivalences::infer_language;
+/// use _chardet_rs::equivalences::infer_language;
 ///
 /// assert_eq!(infer_language("shift_jis"), Some("ja"));
 /// assert_eq!(infer_language("koi8-r"), Some("ru"));

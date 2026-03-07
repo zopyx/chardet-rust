@@ -34,7 +34,7 @@ use super::DetectionResult;
 /// # Examples
 ///
 /// ```
-/// use chardet_rs::pipeline::ascii::detect_ascii;
+/// use _chardet_rs::pipeline::ascii::detect_ascii;
 ///
 /// // Pure ASCII text
 /// let result = detect_ascii(b"Hello, World!");
