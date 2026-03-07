@@ -23,22 +23,22 @@ use crate::registry::EncodingInfo;
 /// Minimum structural score for CJK candidates to proceed.
 ///
 /// Candidates with scores below this threshold are filtered out.
-pub const CJK_MIN_MB_RATIO: f64 = 0.05;
+pub const CJK_MIN_MB_RATIO: f64 = 0.12;
 
 /// Minimum number of non-ASCII bytes required for CJK analysis.
 ///
 /// Too few high bytes make structural analysis unreliable.
-pub const CJK_MIN_NON_ASCII: usize = 2;
+pub const CJK_MIN_NON_ASCII: usize = 4;
 
 /// Minimum percentage of high bytes that must be in valid sequences.
 ///
 /// Filters out data with many orphaned high bytes.
-pub const CJK_MIN_BYTE_COVERAGE: f64 = 0.35;
+pub const CJK_MIN_BYTE_COVERAGE: f64 = 0.55;
 
 /// Minimum number of distinct lead bytes for diversity check.
 ///
 /// Real CJK text typically uses many different lead bytes.
-pub const CJK_MIN_LEAD_DIVERSITY: usize = 4;
+pub const CJK_MIN_LEAD_DIVERSITY: usize = 6;
 
 /// Threshold for applying the lead diversity check.
 ///

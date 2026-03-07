@@ -12,9 +12,22 @@ use once_cell::sync::Lazy;
 
 /// Normalize encoding name for comparison.
 pub fn normalize_encoding_name(name: &str) -> String {
-    name.to_lowercase()
+    let normalized = name
+        .to_lowercase()
         .replace('-', "")
-        .replace('_', "")
+        .replace('_', "");
+
+    // Match Python's codecs.lookup() canonicalization for common IBM aliases.
+    match normalized.as_str() {
+        "ibm437" => "cp437".to_string(),
+        "ibm850" => "cp850".to_string(),
+        "ibm855" => "cp855".to_string(),
+        "ibm858" => "cp858".to_string(),
+        "ibm862" => "cp862".to_string(),
+        "ibm863" => "cp863".to_string(),
+        "ibm865" => "cp865".to_string(),
+        _ => normalized,
+    }
 }
 
 /// Directional superset relationships: detecting any of the supersets

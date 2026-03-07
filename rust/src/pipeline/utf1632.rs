@@ -41,7 +41,9 @@ const MIN_BYTES_UTF16: usize = 10;
 /// For UTF-16 with ASCII text, we expect null bytes in every other position.
 /// This threshold allows for some non-ASCII characters while still detecting
 /// the encoding.
-const UTF16_MIN_NULL_FRACTION: f64 = 0.03;
+const UTF16_MIN_NULL_FRACTION: f64 = 0.10;
+const UTF16_MAX_OPPOSITE_NULL_FRACTION: f64 = 0.25;
+const UTF16_MIN_NULL_FRACTION_DELTA: f64 = 0.05;
 
 /// Detect UTF-16 or UTF-32 encoding from null-byte patterns.
 ///
@@ -224,10 +226,16 @@ fn check_utf16(data: &[u8]) -> Option<DetectionResult> {
     let le_frac = le_null_count as f64 / num_units as f64;
 
     let mut candidates: Vec<(&str, f64)> = Vec::new();
-    if le_frac >= UTF16_MIN_NULL_FRACTION {
+    if le_frac >= UTF16_MIN_NULL_FRACTION
+        && (be_frac <= UTF16_MAX_OPPOSITE_NULL_FRACTION
+            || (le_frac - be_frac) >= UTF16_MIN_NULL_FRACTION_DELTA)
+    {
         candidates.push(("utf-16-le", le_frac));
     }
-    if be_frac >= UTF16_MIN_NULL_FRACTION {
+    if be_frac >= UTF16_MIN_NULL_FRACTION
+        && (le_frac <= UTF16_MAX_OPPOSITE_NULL_FRACTION
+            || (be_frac - le_frac) >= UTF16_MIN_NULL_FRACTION_DELTA)
+    {
         candidates.push(("utf-16-be", be_frac));
     }
 
@@ -238,7 +246,9 @@ fn check_utf16(data: &[u8]) -> Option<DetectionResult> {
     // If only one candidate, validate and return
     if candidates.len() == 1 {
         let (encoding, _) = candidates[0];
-        if validate_utf16(data, encoding == "utf-16-be") {
+        if validate_utf16(data, encoding == "utf-16-be")
+            && utf16_looks_like_text(data, encoding == "utf-16-be")
+        {
             return Some(DetectionResult::new(
                 Some(encoding),
                 DETERMINISTIC_CONFIDENCE,
@@ -255,7 +265,9 @@ fn check_utf16(data: &[u8]) -> Option<DetectionResult> {
         ("utf-16-be", be_frac)
     };
 
-    if validate_utf16(data, best_encoding == "utf-16-be") {
+    if validate_utf16(data, best_encoding == "utf-16-be")
+        && utf16_looks_like_text(data, best_encoding == "utf-16-be")
+    {
         Some(DetectionResult::new(
             Some(best_encoding),
             DETERMINISTIC_CONFIDENCE,
@@ -264,6 +276,21 @@ fn check_utf16(data: &[u8]) -> Option<DetectionResult> {
     } else {
         None
     }
+}
+
+fn utf16_looks_like_text(data: &[u8], is_be: bool) -> bool {
+    let codepoints: Vec<u32> = data
+        .chunks_exact(2)
+        .map(|c| {
+            if is_be {
+                (((c[0] as u16) << 8) | (c[1] as u16)) as u32
+            } else {
+                ((c[0] as u16) | ((c[1] as u16) << 8)) as u32
+            }
+        })
+        .collect();
+
+    looks_like_text(&codepoints)
 }
 
 /// Validate UTF-16 data for proper surrogate pair usage.

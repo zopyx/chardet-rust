@@ -16,6 +16,9 @@ pyo3 = { version = "0.23", optional = true, features = ["extension-module", "abi
 once_cell = "1.19"
 encoding_rs = "0.8"
 
+[dev-dependencies]
+rayon = "1.10"
+
 [features]
 default = ["python"]
 python = ["pyo3", "pyo3/extension-module"]
@@ -24,3 +27,7 @@ python = ["pyo3", "pyo3/extension-module"]
 opt-level = 3
 lto = true
 codegen-units = 1
+
+[[test]]
+name = "test_accury"
+path = "tests/test_accuracy.rs"

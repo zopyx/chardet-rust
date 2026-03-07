@@ -5,67 +5,37 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use _chardet_rs::{
     detect_bytes,
     enums::EncodingEra,
-    equivalences_full::{is_correct, is_equivalent_detection, apply_legacy_rename},
+    equivalences_full::{apply_legacy_rename, is_correct, is_equivalent_detection},
 };
+use rayon::prelude::*;
 
 /// Known accuracy failures - files that are expected to fail detection.
-/// These are marked as #[ignore] so they don't block CI but are tracked.
-const KNOWN_FAILURES: &[&str] = &[
-    "cp037-nl/culturax_mC4_107675.txt",
-    "cp037-en/_ude_1.txt",
-    "cp437-nl/culturax_00000.txt",
-    "cp437-en/culturax_00000.txt",
-    "cp437-en/culturax_00001.txt",
-    "cp437-en/culturax_00002.txt",
-    "cp437-ga/culturax_mC4_63473.txt",
-    "cp500-es/culturax_mC4_87070.txt",
-    "cp850-da/culturax_00002.txt",
-    "cp850-nl/culturax_00000.txt",
-    "cp850-nl/culturax_00001.txt",
-    "cp850-en/culturax_00000.txt",
-    "cp850-en/culturax_00001.txt",
-    "cp850-id/culturax_00000.txt",
-    "cp850-ms/culturax_00000.txt",
-    "cp852-ro/culturax_mC4_78976.txt",
-    "cp852-ro/culturax_mC4_78978.txt",
-    "cp852-ro/culturax_mC4_78979.txt",
-    "cp852-ro/culturax_OSCAR-2019_78977.txt",
-    "cp858-en/culturax_00000.txt",
-    "cp858-fi/culturax_mC4_80362.txt",
-    "cp858-id/culturax_00000.txt",
-    "cp858-ga/culturax_mC4_63469.txt",
-    "cp863-fr/culturax_00002.txt",
-    "cp864-ar/culturax_00000.txt",
-    "cp932-ja/hardsoft.at.webry.info.xml",
-    "cp932-ja/y-moto.com.xml",
-    "cp1006-ur/culturax_00000.txt",
-    "cp1006-ur/culturax_00001.txt",
-    "cp1006-ur/culturax_00002.txt",
-    "gb2312-zh/_mozilla_bug171813_text.html",
-    "hp-roman8-it/culturax_00002.txt",
-    "iso-8859-1-en/ioreg_output.txt",
-    "iso-8859-10-fi/culturax_00002.txt",
-    "iso-8859-13-et/culturax_00002.txt",
-    "iso-8859-15-ga/culturax_mC4_63469.txt",
-    "iso-8859-16-ro/_ude_1.txt",
-    "macroman-br/culturax_OSCAR-2019_43764.txt",
-    "macroman-en/culturax_mC4_84512.txt",
-    "macroman-id/culturax_mC4_114889.txt",
-    "macroman-ga/culturax_mC4_63468.txt",
-    "macroman-ga/culturax_mC4_63469.txt",
-    "macroman-ga/culturax_mC4_63470.txt",
-    "macroman-cy/culturax_mC4_78727.txt",
-    "macroman-cy/culturax_mC4_78729.txt",
-    "utf-8-en/finnish-utf-8-latin-1-confusion.html",
-];
+/// These are loaded from tests/known_accuracy_failures.txt and match pytest.
+const KNOWN_FAILURES_RAW: &str = include_str!("../../tests/known_accuracy_failures.txt");
+
+fn known_failures() -> &'static std::collections::HashSet<&'static str> {
+    static KNOWN: OnceLock<std::collections::HashSet<&'static str>> = OnceLock::new();
+    KNOWN.get_or_init(|| {
+        KNOWN_FAILURES_RAW
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty() && !line.starts_with('#'))
+            .collect()
+    })
+}
 
 /// Check if a test file is a known failure.
 fn is_known_failure(test_id: &str) -> bool {
-    KNOWN_FAILURES.iter().any(|&f| test_id.ends_with(f))
+    known_failures().iter().any(|f| test_id.ends_with(f))
+}
+
+fn known_failures_count() -> usize {
+    known_failures().len()
 }
 
 /// Collect all test files from the test data directory.
@@ -142,14 +112,16 @@ fn collect_test_files_alt() -> Vec<(String, String, PathBuf)> {
         
         let dir_name = path.file_name().unwrap().to_str().unwrap();
         
-        // Parse directory name: "encoding-language" format
-        let parts: Vec<&str> = dir_name.splitn(2, '-').collect();
+        // Parse directory name: "encoding-language" format.
+        // Split on the LAST hyphen since encoding names can contain hyphens.
+        let parts: Vec<&str> = dir_name.rsplitn(2, '-').collect();
         if parts.len() != 2 {
             continue;
         }
-        
-        let encoding = parts[0].to_string();
-        let language = parts[1].to_string();
+
+        // rsplitn returns iterator in reverse order, so parts[0] is language, parts[1] is encoding
+        let language = parts[0].to_string();
+        let encoding = parts[1].to_string();
         
         // Special case for "None-None" (binary files)
         let encoding = if encoding == "None" {
@@ -177,7 +149,7 @@ fn collect_files_recursive(
         let path = entry.path();
         
         if path.is_dir() {
-            collect_files_recursive(dir, encoding.clone(), language.clone(), files);
+            collect_files_recursive(&path, encoding.clone(), language.clone(), files);
         } else if path.is_file() {
             let enc_str = encoding.as_deref().unwrap_or("None").to_string();
             files.push((enc_str, language.clone(), path));
@@ -218,69 +190,84 @@ fn generate_test_cases() -> Vec<TestCase> {
 }
 
 /// Run accuracy tests for a batch of test cases.
-fn run_accuracy_tests(cases: &[TestCase]) -> (usize, usize, Vec<String>) {
-    let mut passed = 0;
-    let mut failed = 0;
-    let mut failures = Vec::new();
-    
-    for case in cases {
-        // Skip known failures
-        if is_known_failure(&case.test_id) {
-            continue;
-        }
-        
-        let data = match fs::read(&case.file_path) {
-            Ok(d) => d,
-            Err(_) => {
-                failed += 1;
-                failures.push(format!("{}: could not read file", case.test_id));
-                continue;
-            }
-        };
-        
-        let result = detect_bytes(&data, EncodingEra::All, 200_000);
-        
-        // Binary files: expect encoding=None
-        if case.expected_encoding == "None" {
-            if result.encoding.is_some() {
-                failed += 1;
-                failures.push(format!(
-                    "{}: expected binary (None), got={}",
-                    case.test_id,
-                    result.encoding.unwrap()
-                ));
-            } else {
-                passed += 1;
-            }
-            continue;
-        }
-        
-        // Text files: check encoding correctness
-        let detected = result.encoding.as_deref().unwrap_or("None");
-        
-        // Try is_correct first (fast), then is_equivalent_detection (slower, decodes data)
-        let correct = if check_correct(Some(&case.expected_encoding), Some(detected)) {
-            true
-        } else {
-            // Fallback: check if decoded text is functionally equivalent
-            is_equivalent_detection(&data, Some(&case.expected_encoding), Some(detected))
-        };
-        
-        if correct {
-            passed += 1;
-        } else {
-            failed += 1;
-            failures.push(format!(
-                "{}: expected={}, got={} (confidence={:.2})",
-                case.test_id,
-                case.expected_encoding,
-                detected,
-                result.confidence
-            ));
-        }
+fn run_accuracy_tests(cases: &[TestCase]) -> (usize, usize, usize, Vec<String>) {
+    #[derive(Default)]
+    struct Acc {
+        passed: usize,
+        failed: usize,
+        skipped_known: usize,
+        failures: Vec<String>,
     }
-    
-    (passed, failed, failures)
+
+    let mut acc = cases
+        .par_iter()
+        .map(|case| {
+            let mut local = Acc::default();
+
+            if is_known_failure(&case.test_id) {
+                local.skipped_known += 1;
+                return local;
+            }
+
+            let data = match fs::read(&case.file_path) {
+                Ok(d) => d,
+                Err(_) => {
+                    local.failed += 1;
+                    local
+                        .failures
+                        .push(format!("{}: could not read file", case.test_id));
+                    return local;
+                }
+            };
+
+            let result = detect_bytes(&data, EncodingEra::All, 200_000);
+
+            if case.expected_encoding == "None" {
+                if result.encoding.is_some() {
+                    local.failed += 1;
+                    local.failures.push(format!(
+                        "{}: expected binary (None), got={}",
+                        case.test_id,
+                        result.encoding.unwrap()
+                    ));
+                } else {
+                    local.passed += 1;
+                }
+                return local;
+            }
+
+            let detected_renamed = result.encoding.as_deref().map(apply_legacy_rename);
+            let detected = detected_renamed.as_deref().unwrap_or("None");
+
+            let correct = if check_correct(Some(&case.expected_encoding), Some(detected)) {
+                true
+            } else {
+                is_equivalent_detection(&data, Some(&case.expected_encoding), Some(detected))
+            };
+
+            if correct {
+                local.passed += 1;
+            } else {
+                local.failed += 1;
+                local.failures.push(format!(
+                    "{}: expected={}, got={} (confidence={:.2}, language={})",
+                    case.test_id, case.expected_encoding, detected, result.confidence, case.language
+                ));
+            }
+
+            local
+        })
+        .reduce(Acc::default, |mut a, b| {
+            a.passed += b.passed;
+            a.failed += b.failed;
+            a.skipped_known += b.skipped_known;
+            a.failures.extend(b.failures);
+            a
+        });
+
+    // Stable output ordering for easier diffs
+    acc.failures.sort();
+    (acc.passed, acc.failed, acc.skipped_known, acc.failures)
 }
 
 #[test]
@@ -293,14 +280,17 @@ fn test_accuracy_all_files() {
         return;
     }
     
-    let (passed, failed, failures) = run_accuracy_tests(&cases);
+    let (passed, failed, skipped_known, failures) = run_accuracy_tests(&cases);
     
     // Print summary
     eprintln!("\nAccuracy Test Summary:");
+    eprintln!("  Total test data cases discovered: {}", cases.len());
+    eprintln!("  Processed test data cases: {}", passed + failed);
+    eprintln!("  Skipped known failures: {}", skipped_known);
     eprintln!("  Total files tested: {}", passed + failed);
     eprintln!("  Passed: {}", passed);
     eprintln!("  Failed: {}", failed);
-    eprintln!("  Known failures skipped: {}", KNOWN_FAILURES.len());
+    eprintln!("  Known failures baseline: {}", known_failures_count());
     
     if !failures.is_empty() {
         eprintln!("\nFailures:");
@@ -355,7 +345,8 @@ fn test_accuracy_with_known_failures() {
         
         let result = detect_bytes(&data, EncodingEra::All, 200_000);
         let is_known = is_known_failure(&case.test_id);
-        let detected = result.encoding.as_deref().unwrap_or("None");
+        let detected_renamed = result.encoding.as_deref().map(apply_legacy_rename);
+        let detected = detected_renamed.as_deref().unwrap_or("None");
         let correct = if case.expected_encoding == "None" {
             result.encoding.is_none()
         } else {

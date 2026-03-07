@@ -1,6 +1,6 @@
 # Makefile for chardet package builds
 
-.PHONY: all clean build sdist wheel check upload upload-all upload-test test
+.PHONY: all clean build sdist wheel check upload upload-all upload-test test parity
 
 # Default target
 all: clean build
@@ -52,6 +52,10 @@ test:
 	uv pip install -e rust
 	PYTHONPATH=rust:src:scripts uv run pytest
 
+# Rust-vs-pytest parity report
+parity:
+	PYTHONPATH=scripts uv run python scripts/parity_report.py
+
 # Install package in development mode
 dev:
 	uv pip install -e ".[dev]"
@@ -81,6 +85,7 @@ help:
 	@echo "  upload-all  - Upload all files in dist/ as-is"
 	@echo "  upload-test - Upload to TestPyPI"
 	@echo "  test        - Run test suite"
+	@echo "  parity      - Run Rust-vs-pytest accuracy parity report"
 	@echo "  dev         - Install in development mode"
 	@echo "  sync        - Update dependencies"
 	@echo "  format      - Format code with ruff"

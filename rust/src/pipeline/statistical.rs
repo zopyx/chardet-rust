@@ -16,9 +16,18 @@
 //! - Byte frequency analysis for single-byte encodings
 //! - Multi-byte pattern detection for CJK encodings
 
-use crate::bigram_models::{models_loaded, score_best_language};
+use crate::bigram_models::{init_models, models_loaded, score_best_language};
 use crate::pipeline::DetectionResult;
 use crate::registry::EncodingInfo;
+use std::sync::OnceLock;
+
+static MODEL_INIT_RESULT: OnceLock<Result<(), String>> = OnceLock::new();
+
+fn ensure_models_loaded() {
+    let _ = MODEL_INIT_RESULT.get_or_init(|| {
+        init_models(include_bytes!("../../../src/chardet/models/models.bin"))
+    });
+}
 
 /// Score all candidates and return results sorted by confidence descending.
 ///
@@ -60,6 +69,7 @@ pub fn score_candidates(data: &[u8], candidates: &[&EncodingInfo]) -> Vec<Detect
         return vec![];
     }
 
+    ensure_models_loaded();
     let mut scores: Vec<(String, f64, Option<String>)> = Vec::new();
 
     // Check if we have bigram models loaded
