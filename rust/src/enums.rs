@@ -27,12 +27,12 @@ pub enum EncodingEra {
 #[pymethods]
 impl EncodingEra {
     /// Check if this era includes the given era flag.
-    pub fn contains(&self, other: &EncodingEra) -> bool {
-        (*self as i32 & *other as i32) != 0
+    pub fn contains(&self, other: EncodingEra) -> bool {
+        (*self as i32 & other as i32) != 0
     }
 
     /// Support for `in` operator (x in era)
-    pub fn __contains__(&self, other: &EncodingEra) -> bool {
+    pub fn __contains__(&self, other: EncodingEra) -> bool {
         self.contains(other)
     }
 
