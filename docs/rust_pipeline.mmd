@@ -54,10 +54,10 @@ flowchart TB
     detect --> run_pipeline
     detect_all --> run_pipeline
     universal -.-> run_pipeline
-    
+
     run_pipeline --> ctx
     run_pipeline --> Stage0
-    
+
     %% Stage 0 flow
     bom -->|"BOM found"| result_vec
     bom -->|"No BOM"| utf1632
@@ -67,7 +67,7 @@ flowchart TB
     binary -->|"Is text"| escape
     escape -->|"Escape encoding found"| result_vec
     escape -->|"No escape seq"| Stage1
-    
+
     %% Stage 1 flow
     markup -->|"Charset found"| result_vec
     markup -->|"No markup"| ascii
@@ -75,7 +75,7 @@ flowchart TB
     ascii -->|"Has high bytes"| utf8
     utf8 -->|"Valid UTF-8"| result_vec
     utf8 -->|"Invalid/not UTF-8"| Stage2
-    
+
     %% Stage 2 flow
     validity --> cjk_gate
     cjk_gate -->|"CJK eliminated"| fallback["windows-1252 @ 0.10"]
@@ -83,15 +83,15 @@ flowchart TB
     structural --> threshold_check
     threshold_check -->|"Yes: High confidence"| score_structural["score_structural_candidates()"]
     threshold_check -->|"No: Continue"| Stage3
-    
+
     %% Stage 3 flow
     statistical --> confusion
     confusion --> niche_demote
     score_structural --> confusion
-    
+
     niche_demote --> result_vec
     fallback --> result_vec
-    
+
     %% Styling
     classDef entry fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
     classDef stage0 fill:#ffebee,stroke:#c62828,stroke-width:2px
@@ -101,7 +101,7 @@ flowchart TB
     classDef result fill:#e0f2f1,stroke:#00695c,stroke-width:3px
     classDef decision fill:#fff9c4,stroke:#f57f17,stroke-width:2px,shape:diamond
     classDef fallback fill:#eceff1,stroke:#455a64,stroke-width:1px
-    
+
     class detect,detect_all,universal entry
     class bom,utf1632,binary,escape stage0
     class markup,ascii,utf8 stage1

@@ -41,31 +41,31 @@ sequenceDiagram
         Note over User,Models: Scenario: Japanese EUC-JP text
         User->>API: detect(data)
         API->>ORC: run_pipeline(data, era, max_bytes)
-        
+
         ORC->>S0: BOM/Escape/Binary checks
         S0-->>ORC: All negative
-        
+
         ORC->>S1: Markup/ASCII/UTF-8 checks
         S1-->>ORC: Not valid UTF-8
-        
+
         ORC->>S2: validity::filter_by_validity()
         S2-->>ORC: Valid candidates [euc-jp, shift_jis, utf-8, ...]
-        
+
         ORC->>S2: gate_cjk_candidates()
         Note right of S2: Check multi-byte structure,<br/>byte coverage, lead diversity
         S2-->>ORC: Filtered candidates
-        
+
         ORC->>S2: structural::compute_structural_score()
         S2-->>ORC: Scores per encoding
-        
+
         ORC->>S3: statistical::score_candidates()
         S3->>Models: Lookup bigram frequencies
         Models-->>S3: Frequency data
         S3-->>ORC: Ranked results
-        
+
         ORC->>S3: confusion::resolve_confusion_groups()
         S3-->>ORC: Resolved ambiguities
-        
+
         ORC-->>API: vec![euc-jp, shift_jis, ...]
         API-->>User: {"encoding": "euc-jp", "confidence": 0.85}
     end
@@ -75,25 +75,25 @@ sequenceDiagram
         Note over User,Models: Scenario: French Windows-1252
         User->>API: detect(data)
         API->>ORC: run_pipeline(data, era, max_bytes)
-        
+
         ORC->>S0: Early checks
         S0-->>ORC: All negative
-        
+
         ORC->>S1: UTF-8 check
         S1-->>ORC: Invalid UTF-8
-        
+
         ORC->>S2: Validity filter
         S2-->>ORC: Single-byte candidates [windows-1252, iso-8859-1, ...]
         Note right of S2: No multi-byte, skip CJK gate<br/>and structural probing
-        
+
         ORC->>S3: statistical::score_candidates()
         S3->>Models: Bigram lookup (French/windows-1252)
         Models-->>S3: Frequency scores
         S3-->>ORC: Ranked results
-        
+
         ORC->>S3: postprocess_results()
         Note right of S3: Demote niche encodings<br/>Resolve confusion groups
-        
+
         ORC-->>API: vec![windows-1252, iso-8859-15, ...]
         API-->>User: {"encoding": "windows-1252", "confidence": 0.73}
     end

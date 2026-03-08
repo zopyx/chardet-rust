@@ -8,29 +8,29 @@ flowchart TB
         support["Support Module"]:::support
         data["Data/Models"]:::data
     end
-    
+
     subgraph Crate["chardet_rs Crate"]
         direction TB
-        
+
         subgraph Lib["lib.rs - Module Root"]
             detect_fn["detect()<br/>Python-facing detect"]:::pub
             detect_all_fn["detect_all()<br/>Python-facing detect_all"]:::pub
         end
-        
+
         subgraph DetectorMod["detector.rs - Streaming"]
             universal_det["UniversalDetector<br/>{buffer, state, result}"]:::pub
             detect_bytes["detect_bytes()"]:::pub
             detect_all_bytes["detect_all_bytes()"]:::pub
         end
-        
+
         subgraph PipelineMod["pipeline/ - Detection Pipeline"]
             direction TB
-            
+
             subgraph Core["Core Types"]
                 detection_result["DetectionResult<br/>{encoding, confidence, language}"]:::pipe
                 pipeline_ctx["PipelineContext<br/>{caches for reuse}"]:::pipe
             end
-            
+
             subgraph Stages["Detection Stages"]
                 bom["bom.rs<br/>BOM detection"]:::pipe
                 utf1632["utf1632.rs<br/>UTF-16/32 patterns"]:::pipe
@@ -44,7 +44,7 @@ flowchart TB
                 statistical["statistical.rs<br/>Bigram scoring"]:::pipe
                 confusion["confusion.rs<br/>Ambiguity resolution"]:::pipe
             end
-            
+
             subgraph Orchestrator["orchestrator.rs"]
                 run_pipeline["run_pipeline()<br/>Main orchestration"]:::pipe
                 gate_cjk["gate_cjk_candidates()<br/>CJK filtering"]:::pipe
@@ -52,34 +52,34 @@ flowchart TB
                 postprocess["postprocess_results()<br/>Final adjustments"]:::pipe
             end
         end
-        
+
         subgraph Models["models.rs + bigram_models.rs"]
             bigram_profile["BigramProfile<br/>65536-byte lookup table"]:::data
             init_models["init_models()<br/>Load from bytes"]:::support
         end
-        
+
         subgraph Registry["registry.rs"]
             encoding_info["EncodingInfo<br/>{name, era, is_multibyte}"]:::support
             get_candidates["get_candidates(era)<br/>Filter by era"]:::support
         end
-        
+
         subgraph Enums["enums.rs"]
             encoding_era["EncodingEra<br/>MODERN_WEB | LEGACY_* | ALL"]:::support
             lang_filter["LanguageFilter<br/>(deprecated)"]:::support
         end
-        
+
         subgraph Equiv["equivalences.rs"]
             legacy_rename["apply_legacy_rename()<br/>Map old → new names"]:::support
         end
     end
-    
+
     %% Flow connections
     detect_fn --> detect_bytes
     detect_all_fn --> detect_all_bytes
     universal_det --> run_pipeline
     detect_bytes --> run_pipeline
     detect_all_bytes --> run_pipeline
-    
+
     run_pipeline --> bom
     run_pipeline --> utf1632
     run_pipeline --> binary
@@ -91,21 +91,21 @@ flowchart TB
     run_pipeline --> gate_cjk
     run_pipeline --> structural
     run_pipeline --> statistical
-    
+
     gate_cjk --> structural
     structural --> score_structural
     score_structural --> statistical
     statistical --> confusion
     confusion --> postprocess
-    
+
     statistical --> bigram_profile
     get_candidates --> encoding_info
-    
+
     %% Styling classes
     classDef pub fill:#bbdefb,stroke:#1565c0,stroke-width:2px
     classDef pipe fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
     classDef support fill:#fff9c4,stroke:#f57f17,stroke-width:2px
     classDef data fill:#e1bee7,stroke:#6a1b9a,stroke-width:2px
     classDef legend fill:#f5f5f5,stroke:#616161,stroke-width:1px
-    
+
     class Legend legend
