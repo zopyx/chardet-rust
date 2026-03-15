@@ -23,6 +23,24 @@ sdist: clean
 wheel: clean
 	uv build --wheel
 
+# Build wheels for multiple platforms using cibuildwheel
+# Note: Linux builds require Docker (colima/docker-desktop)
+wheels:
+	@echo "Building wheels for all platforms..."
+	uv run cibuildwheel --platform macos
+
+wheels-linux:
+	@echo "Building Linux wheels (requires Docker)..."
+	uv run cibuildwheel --platform linux
+
+wheels-windows:
+	@echo "Windows wheels can only be built on Windows or using cross-compilation"
+	@echo "Use GitHub Actions for Windows builds"
+
+# Build all wheels (macOS local + Linux via Docker)
+wheels-all: wheels wheels-linux
+	@echo "All platform wheels built in wheelhouse/"
+
 # Check the built distributions with twine
 check:
 	uvx twine check dist/*
@@ -77,9 +95,12 @@ help:
 	@echo "Available targets:"
 	@echo "  all         - Clean and build sdist + wheel (default)"
 	@echo "  clean       - Remove build artifacts"
-	@echo "  build       - Build both sdist and wheel"
+	@echo "  build       - Build both sdist and wheel (current platform only)"
 	@echo "  sdist       - Build source distribution only"
-	@echo "  wheel       - Build wheel only"
+	@echo "  wheel       - Build wheel only (current platform only)"
+	@echo "  wheels      - Build wheels for macOS (x86_64 + arm64)"
+	@echo "  wheels-linux- Build Linux wheels via Docker (requires colima/docker)"
+	@echo "  wheels-all  - Build wheels for macOS + Linux"
 	@echo "  check       - Check distributions with twine"
 	@echo "  upload      - Upload to PyPI (skips unsupported local linux_* wheels)"
 	@echo "  upload-all  - Upload all files in dist/ as-is"

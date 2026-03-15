@@ -213,6 +213,7 @@ archs = ["AMD64"]
 
 [dependency-groups]
 dev = [
+    "cibuildwheel>=2.20.0",
     "datasets>=4.6.0",
     "prek>=0.3.4",
     "pytest>=9.0.2",
