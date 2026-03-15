@@ -44,7 +44,7 @@ fn validate_max_bytes(max_bytes: usize) -> PyResult<()> {
 /// This validation prevents:
 /// - Empty input edge cases
 /// - Excessively large allocations
-fn validate_byte_input(data: &[u8]) -> PyResult<()> {
+fn validate_byte_input(_data: &[u8]) -> PyResult<()> {
     // Empty input is valid but may produce low-confidence results
     // No upper limit here - pipeline will truncate to max_bytes
     Ok(())

@@ -114,7 +114,7 @@ pub mod py {
         ) -> PyResult<Self> {
             // Security: Validate max_bytes parameter
             validate_max_bytes(max_bytes)
-                .map_err(|e| PyErr::new::<pyo3::exceptions::PyValueError, _>(e))?;
+                .map_err(PyErr::new::<pyo3::exceptions::PyValueError, _>)?;
 
             Ok(Self {
                 should_rename_legacy,
