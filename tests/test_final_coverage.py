@@ -19,37 +19,36 @@ import pytest
 class TestCliCoverage:
     """Tests for CLI remaining uncovered lines."""
 
-    def test_validate_file_path_oserror_on_stat(self, monkeypatch) -> None:
+    def test_validate_file_path_oserror_on_stat(self, monkeypatch, tmp_path) -> None:
         """Test OSError handling when stat() fails in _validate_file_path (line 87)."""
         from chardet.cli import _validate_file_path
 
-        with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
-            f.write("test")
-            temp_path = f.name
+        test_file = tmp_path / "test_stat_fail.txt"
+        test_file.write_text("test")
+        temp_path = str(test_file)
 
-        try:
-            # We need to mock Path.stat but only when called on the resolved path
-            # during the file size check at line 76. We use a call counter.
-            # Based on tracing, the sequence is:
-            #   1. is_symlink() -> lstat() -> stat(follow_symlinks=False)
-            #   2. is_file() -> stat(follow_symlinks=True)
-            #   3. resolved.stat() at line 76 -> stat(follow_symlinks=True)
-            original_path_stat = Path.stat
-            call_count = [0]
+        # Mock Path.stat to raise OSError on the call from line 76 (file size check).
+        # Based on tracing: 
+        #   Call 1: is_symlink() - follow_symlinks=False, original path
+        #   Call 2: is_file() - follow_symlinks=True, resolved path (/private/...)
+        #   Call 3: resolved.stat() - follow_symlinks=True, resolved path - THIS IS THE ONE TO FAIL
+        original_path_stat = Path.stat
+        stat_call_count = [0]
+        test_file_name = "test_stat_fail.txt"
 
-            def tracking_stat(self, follow_symlinks=True):
-                call_count[0] += 1
-                # Raise OSError on the 3rd call which is line 76's resolved.stat()
-                if call_count[0] == 3:
+        def mock_stat(self, follow_symlinks=True):
+            if test_file_name in str(self):
+                stat_call_count[0] += 1
+                # Raise OSError on the 3rd call (line 76's resolved.stat())
+                # Call 1: is_symlink(), Call 2: is_file(), Call 3: resolved.stat()
+                if stat_call_count[0] == 3:
                     raise OSError("permission denied")
-                return original_path_stat(self, follow_symlinks=follow_symlinks)
+            return original_path_stat(self, follow_symlinks=follow_symlinks)
 
-            monkeypatch.setattr(Path, "stat", tracking_stat)
+        monkeypatch.setattr(Path, "stat", mock_stat)
 
-            with pytest.raises(OSError, match="cannot stat file"):
-                _validate_file_path(temp_path)
-        finally:
-            os.unlink(temp_path)
+        with pytest.raises(OSError, match="cannot stat file"):
+            _validate_file_path(temp_path)
 
     def test_main_file_read_oserror(self, capsys, monkeypatch) -> None:
         """Test OSError handling when reading file fails."""
