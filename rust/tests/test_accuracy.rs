@@ -94,7 +94,8 @@ fn collect_test_files_alt() -> Vec<(String, String, PathBuf)> {
         Path::new("../../tests/data"),
     ];
 
-    let data_dir = possible_paths.iter()
+    let data_dir = possible_paths
+        .iter()
         .find(|p| p.exists())
         .cloned()
         .unwrap_or(Path::new("../tests/data"));
@@ -176,7 +177,13 @@ fn generate_test_cases() -> Vec<TestCase> {
         .into_iter()
         .map(|(enc, lang, path)| {
             let file_name = path.file_name().unwrap().to_str().unwrap();
-            let parent_name = path.parent().unwrap().file_name().unwrap().to_str().unwrap();
+            let parent_name = path
+                .parent()
+                .unwrap()
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap();
             let test_id = format!("{}/{}", parent_name, file_name);
 
             TestCase {
@@ -250,7 +257,11 @@ fn run_accuracy_tests(cases: &[TestCase]) -> (usize, usize, usize, Vec<String>) 
                 local.failed += 1;
                 local.failures.push(format!(
                     "{}: expected={}, got={} (confidence={:.2}, language={})",
-                    case.test_id, case.expected_encoding, detected, result.confidence, case.language
+                    case.test_id,
+                    case.expected_encoding,
+                    detected,
+                    result.confidence,
+                    case.language
                 ));
             }
 
@@ -313,7 +324,7 @@ fn test_accuracy_all_files() {
     if total > 0 {
         let accuracy = passed as f64 / total as f64;
         assert!(
-            accuracy >= 0.65,  // Current baseline: 68.7%
+            accuracy >= 0.65, // Current baseline: 68.7%
             "Accuracy test failed: {:.1}% < 65% ({} failures)",
             accuracy * 100.0,
             failed

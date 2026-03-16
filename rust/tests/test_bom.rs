@@ -126,6 +126,6 @@ fn test_utf32_le_bom_falls_through_to_utf16_when_payload_not_aligned() {
 fn test_utf32_be_bom_falls_through_when_payload_not_aligned() {
     // Same logic for UTF-32-BE: payload must be a multiple of 4 bytes
     let data = b"\x00\x00\xfe\xff\x00\x48"; // 2-byte payload, not aligned
-    // No UTF-16-BE fallback here (00 00 FE FF doesn't start with FE FF)
+                                            // No UTF-16-BE fallback here (00 00 FE FF doesn't start with FE FF)
     assert_eq!(detect_bom(data), None);
 }

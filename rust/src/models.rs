@@ -11,10 +11,26 @@ use crate::registry::REGISTRY;
 /// These encodings support multiple languages and require statistical scoring
 /// to determine the most likely language for a given text sample.
 const VARIANT_ENCODINGS: &[&str] = &[
-    "utf-8", "utf8", "windows-1252", "iso-8859-1", "iso-8859-15",
-    "windows-1251", "koi8-r", "iso-8859-5", "windows-1250", "iso-8859-2",
-    "big5", "big5hkscs", "gb18030", "gb2312", "shift_jis", "cp932",
-    "euc-jp", "euc-jis-2004", "euc-kr", "cp949",
+    "utf-8",
+    "utf8",
+    "windows-1252",
+    "iso-8859-1",
+    "iso-8859-15",
+    "windows-1251",
+    "koi8-r",
+    "iso-8859-5",
+    "windows-1250",
+    "iso-8859-2",
+    "big5",
+    "big5hkscs",
+    "gb18030",
+    "gb2312",
+    "shift_jis",
+    "cp932",
+    "euc-jp",
+    "euc-jis-2004",
+    "euc-kr",
+    "cp949",
 ];
 
 /// Check if the encoding has language variants that require statistical scoring.

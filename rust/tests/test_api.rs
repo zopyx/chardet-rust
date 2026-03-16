@@ -2,10 +2,7 @@
 //!
 //! These tests mirror the Python tests in tests/test_api.py.
 
-use _chardet_rs::{
-    detect_all_bytes, detect_bytes,
-    enums::EncodingEra,
-};
+use _chardet_rs::{detect_all_bytes, detect_bytes, enums::EncodingEra};
 
 #[test]
 fn test_detect_returns_result() {

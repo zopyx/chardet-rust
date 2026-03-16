@@ -179,24 +179,25 @@ pub fn infer_language(encoding: &str) -> Option<&'static str> {
         "windows-1256" | "cp1256" | "iso-8859-6" | "cp720" | "cp864" | "cp1006" => Some("ar"),
 
         // Baltic encodings (Estonian, Latvian, Lithuanian)
-        "windows-1257" | "cp1257" | "iso-8859-13" | "iso-8859-4" | "iso-8859-10"
-        | "cp775" => Some("et"),
+        "windows-1257" | "cp1257" | "iso-8859-13" | "iso-8859-4" | "iso-8859-10" | "cp775" => {
+            Some("et")
+        }
 
         // Vietnamese encodings
         "windows-1258" | "cp1258" => Some("vi"),
 
         // Other specific language encodings
-        "iso-8859-3" => Some("eo"),  // Esperanto, Maltese, Turkish
-        "mac-iceland" | "cp861" => Some("is"),  // Icelandic
-        "iso-8859-14" => Some("cy"),  // Welsh
-        "koi8-t" => Some("tg"),  // Tajik
-        "kz-1048" | "ptcp154" => Some("kk"),  // Kazakh
-        "cp860" => Some("pt"),  // Portuguese
-        "cp863" => Some("fr"),  // French Canadian
-        "cp865" => Some("da"),  // Danish/Norwegian
-        "cp1125" => Some("uk"),  // Ukrainian
-        "cp500" | "cp1140" | "cp273" | "cp1026" => Some("de"),  // German
-        "cp875" => Some("el"),  // Greek (alternative)
+        "iso-8859-3" => Some("eo"), // Esperanto, Maltese, Turkish
+        "mac-iceland" | "cp861" => Some("is"), // Icelandic
+        "iso-8859-14" => Some("cy"), // Welsh
+        "koi8-t" => Some("tg"),     // Tajik
+        "kz-1048" | "ptcp154" => Some("kk"), // Kazakh
+        "cp860" => Some("pt"),      // Portuguese
+        "cp863" => Some("fr"),      // French Canadian
+        "cp865" => Some("da"),      // Danish/Norwegian
+        "cp1125" => Some("uk"),     // Ukrainian
+        "cp500" | "cp1140" | "cp273" | "cp1026" => Some("de"), // German
+        "cp875" => Some("el"),      // Greek (alternative)
 
         // Multi-language or unknown
         _ => None,

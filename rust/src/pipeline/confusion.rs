@@ -43,7 +43,8 @@ const BALTIC_DISTINGUISHING_BYTES: &[u8] = &[0xE0, 0xE8, 0xF0, 0xF8, 0xFB, 0xFE,
 ///
 /// `true` if any Baltic distinguishing byte is present.
 fn has_baltic_distinguishing_bytes(data: &[u8]) -> bool {
-    data.iter().any(|&b| BALTIC_DISTINGUISHING_BYTES.contains(&b))
+    data.iter()
+        .any(|&b| BALTIC_DISTINGUISHING_BYTES.contains(&b))
 }
 
 /// Check if data contains bytes that distinguish KOI8-U from KOI8-R.
@@ -64,7 +65,8 @@ const KOI8U_DISTINGUISHING_BYTES: &[u8] = &[0xA4, 0xA6, 0xA7];
 ///
 /// `true` if any KOI8-U distinguishing byte is present.
 fn has_koi8u_distinguishing_bytes(data: &[u8]) -> bool {
-    data.iter().any(|&b| KOI8U_DISTINGUISHING_BYTES.contains(&b))
+    data.iter()
+        .any(|&b| KOI8U_DISTINGUISHING_BYTES.contains(&b))
 }
 
 /// Check if data contains bytes that distinguish ISO-8859-16 from ISO-8859-1.
@@ -75,8 +77,7 @@ fn has_koi8u_distinguishing_bytes(data: &[u8]) -> bool {
 /// - 0xAA = ő, 0xAB = Ő, 0xAC = Ĳ, 0xB1 = ą, 0xB2 = Ł
 /// - 0xB3 = ł, 0xB6 = ș, 0xB9 = œ, 0xBA = ő, 0xBB = ő, 0xBC = ĳ
 const ISO8859_16_DISTINGUISHING_BYTES: &[u8] = &[
-    0xA1, 0xA2, 0xA3, 0xA6, 0xA9, 0xAA, 0xAB, 0xAC, 0xB1, 0xB2, 0xB3, 0xB6, 0xB9, 0xBA, 0xBB,
-    0xBC,
+    0xA1, 0xA2, 0xA3, 0xA6, 0xA9, 0xAA, 0xAB, 0xAC, 0xB1, 0xB2, 0xB3, 0xB6, 0xB9, 0xBA, 0xBB, 0xBC,
 ];
 
 /// Check for ISO-8859-16 distinguishing bytes.
@@ -89,7 +90,8 @@ const ISO8859_16_DISTINGUISHING_BYTES: &[u8] = &[
 ///
 /// `true` if any ISO-8859-16 distinguishing byte is present.
 fn has_iso8859_16_distinguishing_bytes(data: &[u8]) -> bool {
-    data.iter().any(|&b| ISO8859_16_DISTINGUISHING_BYTES.contains(&b))
+    data.iter()
+        .any(|&b| ISO8859_16_DISTINGUISHING_BYTES.contains(&b))
 }
 
 /// Get the language from the top detection result.

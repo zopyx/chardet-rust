@@ -1,6 +1,6 @@
 # Makefile for chardet package builds
 
-.PHONY: all clean build sdist wheel check upload upload-all upload-test test parity
+.PHONY: all clean build sdist wheel wheels wheels-linux wheels-all check upload upload-all upload-test test parity
 
 # Default target
 all: clean build
@@ -26,7 +26,7 @@ wheel: clean
 # Build wheels for multiple platforms using cibuildwheel
 # Note: Linux builds require Docker (colima/docker-desktop)
 wheels:
-	@echo "Building wheels for all platforms..."
+	@echo "Building wheels for macOS..."
 	uv run cibuildwheel --platform macos
 
 wheels-linux:
@@ -93,22 +93,23 @@ lint:
 # Show help
 help:
 	@echo "Available targets:"
-	@echo "  all         - Clean and build sdist + wheel (default)"
-	@echo "  clean       - Remove build artifacts"
-	@echo "  build       - Build both sdist and wheel (current platform only)"
-	@echo "  sdist       - Build source distribution only"
-	@echo "  wheel       - Build wheel only (current platform only)"
-	@echo "  wheels      - Build wheels for macOS (x86_64 + arm64)"
-	@echo "  wheels-linux- Build Linux wheels via Docker (requires colima/docker)"
-	@echo "  wheels-all  - Build wheels for macOS + Linux"
-	@echo "  check       - Check distributions with twine"
-	@echo "  upload      - Upload to PyPI (skips unsupported local linux_* wheels)"
-	@echo "  upload-all  - Upload all files in dist/ as-is"
-	@echo "  upload-test - Upload to TestPyPI"
-	@echo "  test        - Run test suite"
-	@echo "  parity      - Run Rust-vs-pytest accuracy parity report"
-	@echo "  dev         - Install in development mode"
-	@echo "  sync        - Update dependencies"
-	@echo "  format      - Format code with ruff"
-	@echo "  lint        - Lint code with ruff"
-	@echo "  help        - Show this help message"
+	@echo "  all          - Clean and build sdist + wheel (default)"
+	@echo "  clean        - Remove build artifacts"
+	@echo "  build        - Build both sdist and wheel (current platform only)"
+	@echo "  sdist        - Build source distribution only"
+	@echo "  wheel        - Build wheel only (current platform only)"
+	@echo "  wheels       - Build wheels for macOS (arm64 only)"
+	@echo "  wheels-linux - Build Linux wheels via Docker (requires colima/docker)"
+	@echo "  wheels-all   - Build wheels for macOS + Linux"
+
+	@echo "  check        - Check distributions with twine"
+	@echo "  upload       - Upload to PyPI (skips unsupported local linux_* wheels)"
+	@echo "  upload-all   - Upload all files in dist/ as-is"
+	@echo "  upload-test  - Upload to TestPyPI"
+	@echo "  test         - Run test suite"
+	@echo "  parity       - Run Rust-vs-pytest accuracy parity report"
+	@echo "  dev          - Install in development mode"
+	@echo "  sync         - Update dependencies"
+	@echo "  format       - Format code with ruff"
+	@echo "  lint         - Lint code with ruff"
+	@echo "  help         - Show this help message"

@@ -32,8 +32,8 @@
 //! The `orchestrator` module coordinates the stages, passing data through
 //! each stage in order and handling early exits for deterministic detections.
 
+#[cfg(feature = "python")]
 use crate::equivalences::apply_legacy_rename;
-
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 #[cfg(feature = "python")]

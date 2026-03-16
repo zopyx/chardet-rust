@@ -198,7 +198,9 @@ exclude_lines = [
 
 [tool.cibuildwheel]
 build = "cp311-* cp312-* cp313-* cp314-*"
-skip = "*-musllinux_*"
+# Skip musllinux and x86_64 mac builds
+# For local development, also skip cp312-314 (requires python.org installers)
+skip = "*-musllinux_* *-macosx_x86_64 cp312-* cp313-* cp314-*"
 build-frontend = "build[uv]"
 test-command = "python -c \"import chardet; print(chardet.detect(b'hello world'))\""
 

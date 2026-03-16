@@ -24,4 +24,4 @@ classifiers = [
 [tool.maturin]
 python-source = "."
 module-name = "chardet_rs._chardet_rs"
-features = ["pyo3/extension-module"]
+features = ["extension-module"]

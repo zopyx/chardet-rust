@@ -4,7 +4,10 @@
 use pyo3::prelude::*;
 
 /// Bit flags representing encoding eras for filtering detection candidates.
-#[cfg_attr(feature = "python", pyclass(eq, eq_int, rename_all = "SCREAMING_SNAKE_CASE"))]
+#[cfg_attr(
+    feature = "python",
+    pyclass(eq, eq_int, rename_all = "SCREAMING_SNAKE_CASE")
+)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum EncodingEra {
     /// Modern web encodings (UTF-8, Windows-1252, etc.)
@@ -162,5 +165,3 @@ impl LanguageFilter {
         *self as i32
     }
 }
-
-

@@ -161,11 +161,11 @@ pub fn load_models(data: &[u8]) -> Result<HashMap<String, Vec<u8>>, String> {
 /// - This indicates the models.bin file may have been tampered with
 fn verify_models_hash(data: &[u8]) -> Result<(), String> {
     use sha2::{Digest, Sha256};
-    
+
     let mut hasher = Sha256::new();
     hasher.update(data);
     let computed_hash = format!("{:x}", hasher.finalize());
-    
+
     if computed_hash != MODELS_BIN_SHA256 {
         return Err(format!(
             "models.bin hash verification failed: expected {}, got {}. \
@@ -173,7 +173,7 @@ fn verify_models_hash(data: &[u8]) -> Result<(), String> {
             MODELS_BIN_SHA256, computed_hash
         ));
     }
-    
+
     Ok(())
 }
 
@@ -194,7 +194,7 @@ fn verify_models_hash(data: &[u8]) -> Result<(), String> {
 pub fn init_models(data: &[u8]) -> Result<(), String> {
     // Security: Verify hash before loading models
     verify_models_hash(data)?;
-    
+
     let models = load_models(data)?;
     let mut cache = MODELS.lock().unwrap();
     *cache = Some(models);

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+import enum
 import importlib.resources
 
 from chardet_rs._chardet_rs import (
     EncodingEra,
-    LanguageFilter,
     _load_models,
     _models_loaded,
 )
@@ -15,6 +15,19 @@ from chardet_rs._chardet_rs import detect as _detect_rs
 from chardet_rs._chardet_rs import detect_all as _detect_all_rs
 
 __version__ = "7.0.0"
+
+
+class LanguageFilter(enum.IntFlag):
+    """Language filter flags for API compatibility."""
+
+    CHINESE_SIMPLIFIED = 0x01
+    CHINESE_TRADITIONAL = 0x02
+    JAPANESE = 0x04
+    KOREAN = 0x08
+    NON_CJK = 0x10
+    ALL = 0x1F
+    CHINESE = 0x03
+    CJK = 0x0F
 
 
 # Load bigram models at module initialization

@@ -7,14 +7,12 @@
 //! 3. **Preferred superset mapping** for the `should_rename_legacy` API option
 //! 4. **Character-level equivalence** for decoding comparison
 
-use std::collections::{HashMap, HashSet};
 use once_cell::sync::Lazy;
+use std::collections::{HashMap, HashSet};
 
 /// Normalize encoding name for comparison.
 pub fn normalize_encoding_name(name: &str) -> String {
-    let normalized = name
-        .to_lowercase()
-        .replace(['-', '_'], "");
+    let normalized = name.to_lowercase().replace(['-', '_'], "");
 
     // Match Python's codecs.lookup() canonicalization for common IBM aliases.
     match normalized.as_str() {
@@ -52,7 +50,10 @@ fn build_supersets() -> HashMap<String, HashSet<String>> {
         ("cp775", &["windows-1257"]),
         ("cp858", &["cp437", "cp850"]),
         // ISO-2022-JP subsets
-        ("iso-2022-jp", &["iso-2022-jp-2", "iso-2022-jp-2004", "iso-2022-jp-ext"]),
+        (
+            "iso-2022-jp",
+            &["iso-2022-jp-2", "iso-2022-jp-2004", "iso-2022-jp-ext"],
+        ),
         ("iso-2022-jp-1", &["iso-2022-jp-2", "iso-2022-jp-ext"]),
         ("iso-2022-jp-3", &["iso-2022-jp-2004"]),
         // ISO/Windows superset pairs
@@ -72,7 +73,8 @@ fn build_supersets() -> HashMap<String, HashSet<String>> {
 
     for (subset, supersets) in entries {
         let norm_subset = normalize_encoding_name(subset);
-        let norm_supersets: HashSet<String> = supersets.iter()
+        let norm_supersets: HashSet<String> = supersets
+            .iter()
             .map(|s| normalize_encoding_name(s))
             .collect();
         map.insert(norm_subset, norm_supersets);
@@ -98,7 +100,8 @@ fn build_preferred_superset() -> HashMap<String, String> {
         ("tis-620", "CP874"),
     ];
 
-    entries.iter()
+    entries
+        .iter()
         .map(|(k, v)| (k.to_lowercase(), v.to_string()))
         .collect()
 }
@@ -114,9 +117,8 @@ fn build_bidirectional_groups() -> HashMap<String, HashSet<String>> {
 
     let mut map = HashMap::new();
     for group in groups {
-        let normalized: HashSet<String> = group.iter()
-            .map(|s| normalize_encoding_name(s))
-            .collect();
+        let normalized: HashSet<String> =
+            group.iter().map(|s| normalize_encoding_name(s)).collect();
         for name in *group {
             map.insert(normalize_encoding_name(name), normalized.clone());
         }
@@ -127,10 +129,10 @@ fn build_bidirectional_groups() -> HashMap<String, HashSet<String>> {
 /// Bidirectional language equivalences.
 fn build_language_equivalences() -> HashMap<String, HashSet<String>> {
     let groups: &[&[&str]] = &[
-        &["sk", "cs"],  // Slovak / Czech
-        &["uk", "ru", "bg", "be"],  // East Slavic + Bulgarian
-        &["ms", "id"],  // Malay / Indonesian
-        &["no", "da", "sv"],  // Scandinavian
+        &["sk", "cs"],             // Slovak / Czech
+        &["uk", "ru", "bg", "be"], // East Slavic + Bulgarian
+        &["ms", "id"],             // Malay / Indonesian
+        &["no", "da", "sv"],       // Scandinavian
     ];
 
     let mut map = HashMap::new();
@@ -161,9 +163,12 @@ fn build_equivalent_symbol_pairs() -> HashSet<(char, char)> {
 // Static lazy-initialized lookup tables
 static SUPERSETS: Lazy<HashMap<String, HashSet<String>>> = Lazy::new(build_supersets);
 static PREFERRED_SUPERSET: Lazy<HashMap<String, String>> = Lazy::new(build_preferred_superset);
-static BIDIRECTIONAL_GROUPS: Lazy<HashMap<String, HashSet<String>>> = Lazy::new(build_bidirectional_groups);
-static LANGUAGE_EQUIVALENCES: Lazy<HashMap<String, HashSet<String>>> = Lazy::new(build_language_equivalences);
-static EQUIVALENT_SYMBOL_PAIRS: Lazy<HashSet<(char, char)>> = Lazy::new(build_equivalent_symbol_pairs);
+static BIDIRECTIONAL_GROUPS: Lazy<HashMap<String, HashSet<String>>> =
+    Lazy::new(build_bidirectional_groups);
+static LANGUAGE_EQUIVALENCES: Lazy<HashMap<String, HashSet<String>>> =
+    Lazy::new(build_language_equivalences);
+static EQUIVALENT_SYMBOL_PAIRS: Lazy<HashSet<(char, char)>> =
+    Lazy::new(build_equivalent_symbol_pairs);
 
 /// Apply legacy rename to get preferred superset name.
 pub fn apply_legacy_rename(encoding: &str) -> String {
@@ -249,7 +254,11 @@ fn chars_equivalent(a: char, b: char) -> bool {
 ///
 /// This function decodes the data with both encodings and compares the results,
 /// allowing for character-level equivalence (e.g., ¤ ↔ €).
-pub fn is_equivalent_detection(data: &[u8], expected: Option<&str>, detected: Option<&str>) -> bool {
+pub fn is_equivalent_detection(
+    data: &[u8],
+    expected: Option<&str>,
+    detected: Option<&str>,
+) -> bool {
     // Handle None cases
     let (expected, detected) = match (expected, detected) {
         (None, None) => return true,
@@ -300,14 +309,19 @@ pub fn is_equivalent_detection(data: &[u8], expected: Option<&str>, detected: Op
     }
 
     // Check character-level equivalence
-    text_exp.chars()
+    text_exp
+        .chars()
         .zip(text_det.chars())
         .all(|(a, b)| chars_equivalent(a, b))
 }
 
 /// Check whether detected encoding is correct, trying is_correct first,
 /// then falling back to is_equivalent_detection if needed.
-pub fn is_acceptable_detection(data: &[u8], expected: Option<&str>, detected: Option<&str>) -> bool {
+pub fn is_acceptable_detection(
+    data: &[u8],
+    expected: Option<&str>,
+    detected: Option<&str>,
+) -> bool {
     is_correct(expected, detected) || is_equivalent_detection(data, expected, detected)
 }
 

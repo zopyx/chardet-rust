@@ -52,6 +52,11 @@ _ENCODING_ERA_MAP: dict[EncodingEra, _EncodingEra] = {
     EncodingEra.ALL: _EncodingEra.ALL,
 }
 
+if hasattr(_LanguageFilter, "CJK"):
+    _RUST_LANGUAGE_FILTER_CJK = _LanguageFilter.CJK
+else:
+    _RUST_LANGUAGE_FILTER_CJK = _LanguageFilter.ALL_CJK
+
 _LANGUAGE_FILTER_MAP: dict[LanguageFilter, _LanguageFilter] = {
     LanguageFilter.CHINESE_SIMPLIFIED: _LanguageFilter.CHINESE_SIMPLIFIED,
     LanguageFilter.CHINESE_TRADITIONAL: _LanguageFilter.CHINESE_TRADITIONAL,
@@ -60,7 +65,7 @@ _LANGUAGE_FILTER_MAP: dict[LanguageFilter, _LanguageFilter] = {
     LanguageFilter.NON_CJK: _LanguageFilter.NON_CJK,
     LanguageFilter.ALL: _LanguageFilter.ALL,
     LanguageFilter.CHINESE: _LanguageFilter.CHINESE,
-    LanguageFilter.CJK: _LanguageFilter.ALL_CJK,
+    LanguageFilter.CJK: _RUST_LANGUAGE_FILTER_CJK,
 }
 
 
