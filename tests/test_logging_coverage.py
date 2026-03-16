@@ -21,6 +21,14 @@ from chardet.logging import (
 )
 
 
+@pytest.fixture(autouse=True)
+def cleanup_security_logger():
+    """Clean up security logger state after each test to ensure isolation."""
+    yield
+    # Clean up after test
+    disable_security_logging()
+
+
 class TestGetSecurityLogger:
     """Tests for _get_security_logger function."""
 

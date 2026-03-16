@@ -12,6 +12,15 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def cleanup_security_logger():
+    """Clean up security logger state after each test to ensure isolation."""
+    yield
+    # Clean up after test
+    from chardet.logging import disable_security_logging
+    disable_security_logging()
+
+
 class TestCliRemainingLines:
     """Tests for CLI lines 154-156 and 181-182."""
 

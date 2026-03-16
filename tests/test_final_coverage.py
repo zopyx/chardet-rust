@@ -200,6 +200,12 @@ class TestUtilsCoverage:
                 raise ImportError(f"No module named '{name}'")
             return original_import(name, *args, **kwargs)
 
+        # Save module references that we'll need to restore
+        modules_to_restore = {}
+        for key in list(sys.modules.keys()):
+            if key.startswith("chardet"):
+                modules_to_restore[key] = sys.modules[key]
+
         try:
             # Temporarily replace __import__
             builtins.__import__ = mock_import
@@ -207,6 +213,9 @@ class TestUtilsCoverage:
             # Remove chardet._utils from cache to force reimport
             if "chardet._utils" in sys.modules:
                 del sys.modules["chardet._utils"]
+            # Also remove chardet.logging to ensure import error triggers
+            if "chardet.logging" in sys.modules:
+                del sys.modules["chardet.logging"]
 
             # Reimport _utils with mocked import
             from chardet import _utils as _utils_test
@@ -218,8 +227,8 @@ class TestUtilsCoverage:
         finally:
             # Restore original state
             builtins.__import__ = original_import
-            sys.modules.clear()
-            sys.modules.update(saved_modules)
+            # Restore chardet modules to their original state
+            sys.modules.update(modules_to_restore)
 
 
 class TestLoggingCoverage:
@@ -229,30 +238,70 @@ class TestLoggingCoverage:
         """Test _get_security_logger with debug environment variable (lines 61-62)."""
         import sys
 
+        # Save original state
+        logger = logging.getLogger("chardet.security")
+        original_handlers = list(logger.handlers)
+        original_parent = logger.parent
+        original_level = logger.level
+        original_propagate = logger.propagate
+
+        # Save original module state
+        saved_logging_module = sys.modules.get("chardet.logging")
+        saved_utils_module = sys.modules.get("chardet._utils")
+
         # Set debug environment variable BEFORE importing the module
         monkeypatch.setenv("CHARDET_SECURITY_DEBUG", "1")
 
         # Remove the logging module to force reimport with new env var
-        if "chardet.logging" in sys.modules:
-            del sys.modules["chardet.logging"]
+        modules_to_remove = [
+            key for key in sys.modules if key.startswith("chardet.logging")
+        ]
+        for key in modules_to_remove:
+            del sys.modules[key]
 
-        # Now import fresh
-        from chardet.logging import _get_security_logger
+        test_logger = None
+        try:
+            # Reimport to get fresh module with new env var
+            import importlib
 
-        # Clear existing handlers and parent to trigger reconfiguration
-        logger = logging.getLogger("chardet.security")
-        for handler in logger.handlers[:]:
-            logger.removeHandler(handler)
-        # Clear parent to satisfy the condition
-        logger.parent = None
-        logger.setLevel(logging.NOTSET)
+            import chardet.logging as logging_module
 
-        # Get fresh logger - this should trigger the config block at lines 59-66
-        test_logger = _get_security_logger()
+            importlib.reload(logging_module)
 
-        # Should have DEBUG level when env var is set
-        assert test_logger.name == "chardet.security"
-        assert test_logger.level == logging.DEBUG
+            # Clear existing handlers and parent to trigger reconfiguration
+            for handler in list(logger.handlers):
+                logger.removeHandler(handler)
+            # Clear parent to satisfy the condition
+            logger.parent = None
+            logger.setLevel(logging.NOTSET)
+
+            # Get fresh logger - this should trigger the config block at lines 59-66
+            test_logger = logging_module._get_security_logger()
+
+            # Should have DEBUG level when env var is set
+            assert test_logger.name == "chardet.security"
+            assert test_logger.level == logging.DEBUG
+        finally:
+            # Restore original environment variable
+            monkeypatch.delenv("CHARDET_SECURITY_DEBUG", raising=False)
+
+            # Restore logger to original state
+            for handler in list(logger.handlers):
+                logger.removeHandler(handler)
+            for handler in original_handlers:
+                logger.addHandler(handler)
+            logger.parent = original_parent
+            logger.setLevel(original_level)
+            logger.propagate = original_propagate
+
+            # Restore original module state
+            if saved_logging_module is not None:
+                sys.modules["chardet.logging"] = saved_logging_module
+            elif "chardet.logging" in sys.modules:
+                del sys.modules["chardet.logging"]
+
+            if saved_utils_module is not None:
+                sys.modules["chardet._utils"] = saved_utils_module
 
 
 class TestModelsCoverage:
