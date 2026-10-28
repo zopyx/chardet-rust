@@ -73,7 +73,12 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           python-version: ${{ matrix.python-version }}
-      - run: uv sync
+      # The dev group pulls `datasets`, whose `pyarrow` sdist builds `libcst`
+      # against the free-threaded interpreter — and PyO3 refuses free-threaded
+      # CPython below 3.14, so that build cannot succeed here.  The thread-
+      # safety job needs the test runner, not the data tooling.
+      - run: uv sync --no-group dev
+      - run: uv pip install pytest pytest-cov
       - uses: dtolnay/rust-toolchain@stable
       - run: uv pip install -e rust
       - name: Verify GIL is disabled
