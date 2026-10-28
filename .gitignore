@@ -25,7 +25,8 @@ tests/data/
 .claude/settings.local.json
 .worktrees/
 uv.lock
-src/chardet/_version.py
+# Tracked here: the vendored reference generates it with hatch-vcs, this
+# project builds with setuptools, so the module is versioned instead.
 .benchmark_results/
 docs/_build/
 docs/_static/
