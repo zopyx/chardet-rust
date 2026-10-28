@@ -16,6 +16,10 @@ build/
 htmlcov/
 coverage.xml
 data/
+# The generated tables under rust/src/data are build inputs (`include_bytes!`),
+# not build output: the crate does not compile without them.
+!rust/src/data/
+!rust/src/data/*.bin
 tests/data
 tests/data/
 .claude/settings.local.json
