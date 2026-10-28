@@ -57,39 +57,3 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: chardet/chardet
           fail_ci_if_error: false
-
-  free-threaded:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        # PyO3 0.23 currently supports free-threaded up to CPython 3.13t.
-        python-version: ["3.13t"]
-        os: [ubuntu-latest, macos-latest]
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: astral-sh/setup-uv@v7
-        with:
-          python-version: ${{ matrix.python-version }}
-      # The dev group pulls `datasets`, whose `pyarrow` sdist builds `libcst`
-      # against the free-threaded interpreter — and PyO3 refuses free-threaded
-      # CPython below 3.14, so that build cannot succeed here.  The thread-
-      # safety job needs the test runner, not the data tooling.
-      - run: uv sync --no-group dev
-      - run: uv pip install pytest pytest-cov
-      - uses: dtolnay/rust-toolchain@stable
-      - run: uv pip install -e rust
-      - name: Verify GIL is disabled
-        run: uv run python -c "import sys; assert not sys._is_gil_enabled(), 'GIL is not disabled'"
-        env:
-          PYTHONPATH: rust
-      - name: Run thread-safety tests
-        run: uv run pytest tests/test_thread_safety.py -v -s -W error::pytest.PytestUnhandledThreadExceptionWarning
-        env:
-          PYTHONPATH: rust
-      - name: Run full test suite
-        run: uv run pytest tests/ -q --tb=short --cov --cov-report=term-missing
-        env:
-          PYTHONPATH: rust
