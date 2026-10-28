@@ -9,84 +9,85 @@ from pathlib import Path
 import chardet
 from chardet._utils import DEFAULT_MAX_BYTES
 from chardet.enums import EncodingEra
-from chardet.exceptions import ChardetError, DetectionError, FileError
-from chardet.logging import SecurityEventType, log_file_security
 from chardet.pipeline import DetectionDict
 
-# Hardcoded list since Rust enum doesn't support Python enum iteration
-_ERA_NAMES = [
-    "modern_web",
-    "legacy_iso",
-    "legacy_mac",
-    "legacy_regional",
-    "dos",
-    "mainframe",
-    "all",
-]
+_ERA_NAMES = [e.name.lower() for e in EncodingEra if e.bit_count() == 1] + ["all"]
 
-# Security: Maximum file size allowed for CLI detection (50 MB)
-# Prevents memory exhaustion and DoS attacks via large files
-_MAX_FILE_SIZE = 50 * 1024 * 1024
+#: Mapping from ISO 639-1 language codes to English names.
+#: Includes ``"und"`` (ISO 639-3 "Undetermined") for use when language is unknown.
+ISO_TO_LANGUAGE: dict[str, str] = {
+    "ar": "arabic",
+    "be": "belarusian",
+    "bg": "bulgarian",
+    "br": "breton",
+    "cs": "czech",
+    "cy": "welsh",
+    "da": "danish",
+    "de": "german",
+    "el": "greek",
+    "en": "english",
+    "eo": "esperanto",
+    "es": "spanish",
+    "et": "estonian",
+    "fa": "farsi",
+    "fi": "finnish",
+    "fr": "french",
+    "ga": "irish",
+    "gd": "gaelic",
+    "he": "hebrew",
+    "hr": "croatian",
+    "hu": "hungarian",
+    "id": "indonesian",
+    "is": "icelandic",
+    "it": "italian",
+    "ja": "japanese",
+    "kk": "kazakh",
+    "ko": "korean",
+    "lt": "lithuanian",
+    "lv": "latvian",
+    "mk": "macedonian",
+    "ms": "malay",
+    "mt": "maltese",
+    "nl": "dutch",
+    "no": "norwegian",
+    "pl": "polish",
+    "pt": "portuguese",
+    "ro": "romanian",
+    "ru": "russian",
+    "sk": "slovak",
+    "sl": "slovene",
+    "sr": "serbian",
+    "sv": "swedish",
+    "tg": "tajik",
+    "th": "thai",
+    "tr": "turkish",
+    "uk": "ukrainian",
+    "und": "undetermined",
+    "ur": "urdu",
+    "vi": "vietnamese",
+    "zh": "chinese",
+}
 
 
-def _print_result(result: DetectionDict, label: str, *, minimal: bool) -> None:
+def _print_result(
+    result: DetectionDict, label: str, *, minimal: bool, language: bool, mime_type: bool
+) -> None:
     """Print a detection result to stdout."""
+    desc = str(result["encoding"])
     if minimal:
-        print(result["encoding"])
+        if language:
+            desc += f" {result['language'] or 'und'}"
+        if mime_type:
+            desc += f" {result['mime_type'] or 'application/octet-stream'}"
+        print(desc)
     else:
-        print(f"{label}: {result['encoding']} with confidence {result['confidence']}")
-
-
-def _validate_file_path(filepath: str) -> Path:
-    """Validate file path for security.
-    
-    Security checks:
-    - Resolves to an actual file (not directory)
-    - Is not a symlink (prevents symlink attacks)
-    - File size is within acceptable limits
-    
-    :param filepath: Path to validate
-    :returns: Validated Path object
-    :raises ValueError: If path fails security checks
-    :raises OSError: If file access fails
-    """
-    path = Path(filepath)
-    
-    # Security: Check for symlinks before resolving
-    if path.is_symlink():
-        log_file_security(
-            SecurityEventType.SYMLINK_BLOCKED,
-            filepath,
-            "Symlink detected and blocked",
-        )
-        raise ValueError("symlinks are not supported for security reasons")
-    
-    # Resolve to absolute path to prevent directory traversal
-    try:
-        resolved = path.resolve(strict=True)
-    except (OSError, RuntimeError) as e:
-        raise OSError(f"cannot access file: {e}") from e
-    
-    # Security: Ensure it's a regular file, not a directory or special file
-    if not resolved.is_file():
-        raise ValueError(f"not a regular file: {filepath}")
-    
-    # Security: Check file size before opening
-    try:
-        file_size = resolved.stat().st_size
-        if file_size > _MAX_FILE_SIZE:
-            log_file_security(
-                SecurityEventType.FILE_SIZE_EXCEEDED,
-                str(resolved),
-                f"File size {file_size} exceeds maximum {_MAX_FILE_SIZE}",
-            )
-            raise ValueError(
-                f"file too large ({file_size} bytes, max: {_MAX_FILE_SIZE} bytes)"
-            )
-    except OSError as e:
-        raise OSError(f"cannot stat file: {e}") from e
-    
-    return resolved
+        if language:
+            iso = result["language"] or "und"
+            name = ISO_TO_LANGUAGE.get(iso, iso).title()
+            desc += f" {iso} ({name})"
+        if mime_type:
+            desc += f" {result['mime_type'] or 'application/octet-stream'}"
+        print(f"{label}: {desc} with confidence {result['confidence']}")
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -100,6 +101,18 @@ def main(argv: list[str] | None = None) -> None:
         "--minimal", action="store_true", help="Output only the encoding name"
     )
     parser.add_argument(
+        "-l",
+        "--language",
+        action="store_true",
+        help="Include detected language in output",
+    )
+    parser.add_argument(
+        "-m",
+        "--mime-type",
+        action="store_true",
+        help="Include detected MIME type in output",
+    )
+    parser.add_argument(
         "-e",
         "--encoding-era",
         default=None,
@@ -107,88 +120,123 @@ def main(argv: list[str] | None = None) -> None:
         help="Encoding era filter",
     )
     parser.add_argument(
+        "-i",
+        "--include-encodings",
+        default=None,
+        help="Comma-separated list of encodings to consider",
+    )
+    parser.add_argument(
+        "-x",
+        "--exclude-encodings",
+        default=None,
+        help="Comma-separated list of encodings to exclude",
+    )
+    parser.add_argument(
+        "--no-match-encoding",
+        default="cp1252",
+        help="Encoding to return when detection is inconclusive (default: cp1252)",
+    )
+    parser.add_argument(
+        "--empty-input-encoding",
+        default="utf-8",
+        help="Encoding to return for empty input (default: utf-8)",
+    )
+    parser.add_argument(
+        "--prefer-superset",
+        action="store_true",
+        help=(
+            "Report detected subset encodings under their Windows/CP superset "
+            "(ISO-8859-1 as Windows-1252, EUC-KR as CP949), so the name is safe "
+            "to decode with past the examined bytes.  The Python API makes "
+            "this the default in chardet 8.0"
+        ),
+    )
+    parser.add_argument(
+        "--no-compat-names",
+        action="store_true",
+        help=(
+            "Report raw Python codec names (euc_jis_2004, cp1252) instead of "
+            "the display names chardet reports by default (EUC-JP, Windows-1252)"
+        ),
+    )
+    parser.add_argument(
         "--version", action="version", version=f"chardet {chardet.__version__}"
     )
 
     args = parser.parse_args(argv)
 
-    era_map = {
-        "MODERN_WEB": EncodingEra.MODERN_WEB,
-        "LEGACY_ISO": EncodingEra.LEGACY_ISO,
-        "LEGACY_MAC": EncodingEra.LEGACY_MAC,
-        "LEGACY_REGIONAL": EncodingEra.LEGACY_REGIONAL,
-        "DOS": EncodingEra.DOS,
-        "MAINFRAME": EncodingEra.MAINFRAME,
-        "ALL": EncodingEra.ALL,
-    }
     era = (
-        era_map.get(args.encoding_era.upper(), EncodingEra.ALL)
-        if args.encoding_era
-        else EncodingEra.ALL
+        EncodingEra[args.encoding_era.upper()] if args.encoding_era else EncodingEra.ALL
     )
+
+    include = (
+        [s.strip() for s in args.include_encodings.split(",")]
+        if args.include_encodings
+        else None
+    )
+    exclude = (
+        [s.strip() for s in args.exclude_encodings.split(",")]
+        if args.exclude_encodings
+        else None
+    )
+
+    def detect_bytes(data: bytes) -> DetectionDict:
+        return chardet.detect(
+            data,
+            encoding_era=era,
+            max_bytes=DEFAULT_MAX_BYTES,
+            prefer_superset=args.prefer_superset,
+            compat_names=not args.no_compat_names,
+            include_encodings=include,
+            exclude_encodings=exclude,
+            no_match_encoding=args.no_match_encoding,
+            empty_input_encoding=args.empty_input_encoding,
+        )
 
     if args.files:
         errors = 0
         for filepath in args.files:
-            # Security: Validate file path before opening
             try:
-                resolved_path = _validate_file_path(filepath)
-            except (ValueError, OSError) as e:
-                print(f"chardetect: {filepath}: {e}", file=sys.stderr)
-                errors += 1
-                continue
-            
-            try:
-                with resolved_path.open("rb") as f:
-                    data = f.read(DEFAULT_MAX_BYTES)
+                with Path(filepath).open("rb") as f:
+                    # One byte past the cap lets detect() tell truncated
+                    # input from input that ends exactly at the cap.  It
+                    # does its own slicing to max_bytes.
+                    data = f.read(DEFAULT_MAX_BYTES + 1)
             except OSError as e:
                 print(f"chardetect: {filepath}: {e}", file=sys.stderr)
                 errors += 1
                 continue
             try:
-                result = chardet.detect(data, encoding_era=era)
-            except (ValueError, UnicodeDecodeError) as e:
-                # Specific exceptions for known error types
-                # ValueError: invalid parameters
-                # UnicodeDecodeError: encoding/decoding failures
+                result = detect_bytes(data)
+            except Exception as e:  # noqa: BLE001
                 print(f"chardetect: {filepath}: detection failed: {e}", file=sys.stderr)
                 errors += 1
                 continue
-            except ChardetError as e:
-                # chardet-specific errors (DetectionError, InvalidInputError, etc.)
-                print(f"chardetect: {filepath}: detection failed: {e}", file=sys.stderr)
-                errors += 1
-                continue
-            except RuntimeError as e:
-                # Unexpected runtime errors - sanitize message to avoid leaking internals
-                print(
-                    f"chardetect: {filepath}: detection failed: unexpected error",
-                    file=sys.stderr,
-                )
-                errors += 1
-                continue
-            _print_result(result, filepath, minimal=args.minimal)
+            _print_result(
+                result,
+                filepath,
+                minimal=args.minimal,
+                language=args.language,
+                mime_type=args.mime_type,
+            )
         if errors == len(args.files):
             sys.exit(1)
     else:
-        data = sys.stdin.buffer.read(DEFAULT_MAX_BYTES)
+        # Same reason as the file read above: one extra byte so detect()
+        # can see that the input was truncated.
+        data = sys.stdin.buffer.read(DEFAULT_MAX_BYTES + 1)
         try:
-            result = chardet.detect(data, encoding_era=era)
-        except (ValueError, UnicodeDecodeError) as e:
-            # Specific exceptions for known error types
-            # ValueError: invalid parameters
-            # UnicodeDecodeError: encoding/decoding failures
+            result = detect_bytes(data)
+        except Exception as e:  # noqa: BLE001
             print(f"chardetect: stdin: detection failed: {e}", file=sys.stderr)
             sys.exit(1)
-        except ChardetError as e:
-            # chardet-specific errors (DetectionError, InvalidInputError, etc.)
-            print(f"chardetect: stdin: detection failed: {e}", file=sys.stderr)
-            sys.exit(1)
-        except RuntimeError as e:
-            # Unexpected runtime errors - sanitize message to avoid leaking internals
-            print(f"chardetect: stdin: detection failed: unexpected error", file=sys.stderr)
-            sys.exit(1)
-        _print_result(result, "stdin", minimal=args.minimal)
+        _print_result(
+            result,
+            "stdin",
+            minimal=args.minimal,
+            language=args.language,
+            mime_type=args.mime_type,
+        )
 
 
 if __name__ == "__main__":  # pragma: no cover

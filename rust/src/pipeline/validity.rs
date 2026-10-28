@@ -83,7 +83,7 @@ fn is_valid_for_encoding(data: &[u8], enc: &EncodingInfo) -> bool {
             true
         }
         "ascii" => data.iter().all(|&b| b < 0x80),
-        _ if enc.is_multibyte => {
+        _ if enc.is_multibyte_cjk => {
             // For CJK encodings, we do basic structural checks
             is_valid_multibyte(data, enc.name)
         }
@@ -108,12 +108,12 @@ fn is_valid_for_encoding(data: &[u8], enc: &EncodingInfo) -> bool {
 fn is_valid_multibyte(data: &[u8], encoding: &str) -> bool {
     match encoding {
         "shift_jis_2004" | "cp932" => is_valid_shift_jis(data),
-        "euc-jis-2004" | "euc-jp" => is_valid_euc_jp(data),
-        "euc-kr" | "cp949" => is_valid_euc_kr(data),
+        "euc_jis_2004" | "euc-jp" => is_valid_euc_jp(data),
+        "euc_kr" | "cp949" => is_valid_euc_kr(data),
         "gb18030" | "gb2312" | "gbk" => is_valid_gb18030(data),
         "big5hkscs" | "big5" => is_valid_big5(data),
         "johab" => is_valid_johab(data),
-        "hz-gb-2312" => is_valid_hz(data),
+        "hz" => is_valid_hz(data),
         _ => true, // Unknown multibyte - let it through for statistical scoring
     }
 }

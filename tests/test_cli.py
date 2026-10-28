@@ -1,6 +1,7 @@
 # tests/test_cli.py
 from __future__ import annotations
 
+import io
 import subprocess
 import sys
 from pathlib import Path
@@ -20,7 +21,7 @@ def test_cli_detects_file(tmp_path: Path):
         text=True,
     )
     assert result.returncode == 0
-    assert "windows-1252" in result.stdout.lower()
+    assert "ascii" in result.stdout.lower()
 
 
 def test_cli_detects_utf8_file(tmp_path: Path):
@@ -42,7 +43,45 @@ def test_cli_stdin():
         capture_output=True,
     )
     assert result.returncode == 0
-    assert "windows-1252" in result.stdout.decode().lower()
+    assert "ascii" in result.stdout.decode().lower()
+
+
+@pytest.mark.parametrize("source", ["file", "stdin"])
+@pytest.mark.parametrize(
+    "data",
+    [
+        b"Hello \xc3\xa9 more text here",
+        b"Hello \xc3",
+        b"Hello!!",
+        b"Hello!!\xff",
+    ],
+    ids=["clipped-utf8", "incomplete-input", "exact-cap", "past-cap"],
+)
+def test_cli_preserves_input_truncation(
+    source: str,
+    data: bytes,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+):
+    max_bytes = 7
+    monkeypatch.setattr("chardet.cli.DEFAULT_MAX_BYTES", max_bytes)
+    expected = chardet.detect(data, max_bytes=max_bytes)["encoding"]
+    if data.startswith(b"Hello \xc3\xa9"):
+        assert expected == "utf-8"
+
+    argv = ["--minimal"]
+    if source == "file":
+        path = tmp_path / "capped.txt"
+        path.write_bytes(data)
+        argv.append(str(path))
+    else:
+        monkeypatch.setattr(sys, "stdin", io.TextIOWrapper(io.BytesIO(data)))
+
+    main(argv)
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    assert captured.out.strip() == expected
 
 
 def test_cli_version():
@@ -68,7 +107,7 @@ def test_cli_minimal_flag(tmp_path: Path):
         text=True,
     )
     assert result.returncode == 0
-    assert result.stdout.strip() == "Windows-1252"
+    assert result.stdout.strip() == "ascii"
 
 
 def test_cli_multiple_files(tmp_path: Path):
@@ -114,7 +153,7 @@ def test_cli_partial_failure(tmp_path: Path, capsys: pytest.CaptureFixture[str])
 
 def test_main_module_importable():
     """chardet.__main__ should be importable (covers module-level import)."""
-    import chardet.__main__  # noqa: F401
+    import chardet.__main__  # noqa: F401, PLC0415
 
 
 def test_cli_python_m_chardet(tmp_path: Path):
@@ -145,16 +184,13 @@ def test_cli_detection_failure_on_file(
         main([str(f)])
     captured = capsys.readouterr()
     assert "detection failed" in captured.err
-    # SEC-011: Error messages should not leak internal exception details
-    assert "unexpected error" in captured.err
+    assert "boom" in captured.err
 
 
 def test_cli_detection_failure_on_stdin(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ):
     """Detection exception on stdin should print error and exit 1."""
-    import io
-
     fake_stdin = io.TextIOWrapper(io.BytesIO(b"Hello"))
     monkeypatch.setattr(sys, "stdin", fake_stdin)
     monkeypatch.setattr(
@@ -186,10 +222,320 @@ def test_cli_stdin_success_in_process(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ):
     """Stdin detection success path should print result (in-process)."""
-    import io
-
     fake_stdin = io.TextIOWrapper(io.BytesIO(b"Hello world"))
     monkeypatch.setattr(sys, "stdin", fake_stdin)
     main([])
     captured = capsys.readouterr()
     assert "with confidence" in captured.out
+
+
+def test_cli_language_flag(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    """--language should include language code and name in output."""
+    f = tmp_path / "test.txt"
+    f.write_bytes("Héllo wörld café résumé naïve".encode())
+    main(["--language", str(f)])
+    captured = capsys.readouterr()
+    assert "with confidence" in captured.out
+    # Should contain a language code and parenthesized name in the output
+    assert "(" in captured.out
+    assert ")" in captured.out
+
+
+def test_cli_language_short_flag(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    """-l should work as short form of --language."""
+    f = tmp_path / "test.txt"
+    f.write_bytes("Héllo wörld café résumé naïve".encode())
+    main(["-l", str(f)])
+    captured = capsys.readouterr()
+    assert "(" in captured.out
+    assert "with confidence" in captured.out
+
+
+def test_cli_language_minimal(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    """--language + --minimal should print encoding and language code."""
+    f = tmp_path / "test.txt"
+    f.write_bytes("Héllo wörld café résumé naïve".encode())
+    main(["--minimal", "--language", str(f)])
+    captured = capsys.readouterr()
+    parts = captured.out.strip().split()
+    # Should be exactly two tokens: encoding and language code
+    assert len(parts) == 2
+    assert "with confidence" not in captured.out
+    assert "(" not in captured.out
+
+
+def test_cli_language_minimal_stdin(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    """--language + --minimal on stdin should print encoding and language code."""
+    fake_stdin = io.TextIOWrapper(io.BytesIO("Héllo wörld café résumé naïve".encode()))
+    monkeypatch.setattr(sys, "stdin", fake_stdin)
+    main(["--minimal", "--language"])
+    captured = capsys.readouterr()
+    parts = captured.out.strip().split()
+    assert len(parts) == 2
+    assert "with confidence" not in captured.out
+
+
+def test_cli_language_none_shows_und(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+):
+    """When language is None, should display 'und (Undetermined)'."""
+    f = tmp_path / "test.txt"
+    f.write_bytes(b"Hello world")
+    monkeypatch.setattr(
+        chardet,
+        "detect",
+        lambda *_a, **_kw: {"encoding": "ascii", "confidence": 1.0, "language": None},
+    )
+    main(["--language", str(f)])
+    captured = capsys.readouterr()
+    assert "und (Undetermined)" in captured.out
+
+
+def test_cli_language_none_minimal_shows_und(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+):
+    """When language is None with --minimal, should display 'encoding und'."""
+    f = tmp_path / "test.txt"
+    f.write_bytes(b"Hello world")
+    monkeypatch.setattr(
+        chardet,
+        "detect",
+        lambda *_a, **_kw: {"encoding": "ascii", "confidence": 1.0, "language": None},
+    )
+    main(["--minimal", "--language", str(f)])
+    captured = capsys.readouterr()
+    assert captured.out.strip() == "ascii und"
+
+
+def test_cli_language_stdin(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    """--language on stdin should include language in output."""
+    fake_stdin = io.TextIOWrapper(io.BytesIO("Héllo wörld café résumé naïve".encode()))
+    monkeypatch.setattr(sys, "stdin", fake_stdin)
+    main(["--language"])
+    captured = capsys.readouterr()
+    assert "with confidence" in captured.out
+    assert "(" in captured.out
+
+
+def test_cli_without_language_flag_unchanged(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    """Without --language, output should not contain language info."""
+    f = tmp_path / "test.txt"
+    f.write_bytes("Héllo wörld café résumé naïve".encode())
+    main([str(f)])
+    captured = capsys.readouterr()
+    assert "with confidence" in captured.out
+    # No parenthesized language name
+    assert "(" not in captured.out
+
+
+def test_cli_mime_type_flag(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    """--mime-type should include the MIME type in output."""
+    f = tmp_path / "test.txt"
+    f.write_bytes(b"Hello world")
+    main(["--mime-type", str(f)])
+    captured = capsys.readouterr()
+    assert "text/plain" in captured.out
+    assert "with confidence" in captured.out
+
+
+def test_cli_mime_type_short_flag(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    """-m should work as short form of --mime-type."""
+    f = tmp_path / "test.txt"
+    f.write_bytes(b"Hello world")
+    main(["-m", str(f)])
+    captured = capsys.readouterr()
+    assert "text/plain" in captured.out
+
+
+def test_cli_mime_type_binary_file(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    """--mime-type on a PNG should report image/png from magic numbers."""
+    f = tmp_path / "test.png"
+    f.write_bytes(b"\x89PNG\r\n\x1a\n" + b"\x00" * 32)
+    main(["--mime-type", str(f)])
+    captured = capsys.readouterr()
+    assert "image/png" in captured.out
+
+
+def test_cli_mime_type_minimal(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    """--mime-type + --minimal should print encoding and MIME type."""
+    f = tmp_path / "test.txt"
+    f.write_bytes(b"Hello world")
+    main(["--minimal", "--mime-type", str(f)])
+    captured = capsys.readouterr()
+    assert captured.out.strip() == "ascii text/plain"
+
+
+def test_cli_mime_type_minimal_language(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    """--minimal -l -m should print encoding, language code, and MIME type."""
+    f = tmp_path / "test.txt"
+    f.write_bytes("Héllo wörld café résumé naïve".encode())
+    main(["--minimal", "-l", "-m", str(f)])
+    captured = capsys.readouterr()
+    parts = captured.out.strip().split()
+    assert len(parts) == 3
+    assert parts[2] == "text/plain"
+
+
+def test_cli_mime_type_with_language(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    """-l -m should show language and MIME type before the confidence."""
+    f = tmp_path / "test.txt"
+    f.write_bytes("Héllo wörld café résumé naïve".encode())
+    main(["-l", "-m", str(f)])
+    captured = capsys.readouterr()
+    assert "(" in captured.out
+    assert "text/plain with confidence" in captured.out
+
+
+def test_cli_mime_type_stdin(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    """--mime-type on stdin should include MIME type in output."""
+    fake_stdin = io.TextIOWrapper(io.BytesIO(b"Hello world"))
+    monkeypatch.setattr(sys, "stdin", fake_stdin)
+    main(["--mime-type"])
+    captured = capsys.readouterr()
+    assert "text/plain" in captured.out
+    assert "with confidence" in captured.out
+
+
+def test_cli_mime_type_none_shows_octet_stream(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+):
+    """When mime_type is None, should display 'application/octet-stream'."""
+    f = tmp_path / "test.txt"
+    f.write_bytes(b"Hello world")
+    monkeypatch.setattr(
+        chardet,
+        "detect",
+        lambda *_a, **_kw: {
+            "encoding": "ascii",
+            "confidence": 1.0,
+            "language": None,
+            "mime_type": None,
+        },
+    )
+    main(["--minimal", "--mime-type", str(f)])
+    captured = capsys.readouterr()
+    assert captured.out.strip() == "ascii application/octet-stream"
+
+
+def test_cli_without_mime_type_flag_unchanged(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    """Without --mime-type, output should not contain the MIME type."""
+    f = tmp_path / "test.txt"
+    f.write_bytes(b"Hello world")
+    main([str(f)])
+    captured = capsys.readouterr()
+    assert "with confidence" in captured.out
+    assert "text/plain" not in captured.out
+
+
+def test_cli_include_encodings(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    f = tmp_path / "test.txt"
+    f.write_bytes(b"Hello world")
+    main(["-i", "utf-8,ascii", "--minimal", str(f)])
+    captured = capsys.readouterr()
+    assert captured.out.strip().lower() == "ascii"
+
+
+def test_cli_exclude_encodings(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    f = tmp_path / "test.txt"
+    f.write_bytes(b"Hello world")
+    main(["-x", "ascii", "--minimal", str(f)])
+    captured = capsys.readouterr()
+    assert captured.out.strip().lower() != "ascii"
+
+
+def test_cli_no_match_encoding(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    """--no-match-encoding is returned when no candidates survive."""
+    f = tmp_path / "test.txt"
+    f.write_bytes(b"\x80\x81\x82\x83\x84\x85")
+    main(["--no-match-encoding", "ascii", "-i", "ascii", "--minimal", str(f)])
+    captured = capsys.readouterr()
+    assert captured.out.strip().lower() == "ascii"
+
+
+def test_cli_empty_input_encoding(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    f = tmp_path / "test.txt"
+    f.write_bytes(b"")
+    main(["--empty-input-encoding", "ascii", str(f)])
+    captured = capsys.readouterr()
+    assert "ascii" in captured.out.lower()
+
+
+def test_cli_include_with_spaces(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    """Comma-separated values with spaces should be stripped."""
+    f = tmp_path / "test.txt"
+    f.write_bytes(b"Hello world")
+    main(["-i", "utf-8, ascii", "--minimal", str(f)])
+    captured = capsys.readouterr()
+    assert captured.out.strip().lower() == "ascii"
+
+
+def test_cli_invalid_include_encoding(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+):
+    """Invalid encoding name in -i should report detection failure."""
+    f = tmp_path / "test.txt"
+    f.write_bytes(b"Hello")
+    with pytest.raises(SystemExit, match="1"):
+        main(["-i", "not-a-real-encoding", str(f)])
+    captured = capsys.readouterr()
+    assert "detection failed" in captured.err
+
+
+_GREEK = "Καλημέρα κόσμε, αυτό είναι ένα δοκιμαστικό κείμενο στα ελληνικά.\n".encode(
+    "iso8859-7"
+)
+_JAPANESE = "日本語のテキストです。文字コードを判定します。\n".encode("euc_jp")
+
+
+def test_cli_prefer_superset(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    """--prefer-superset reports the Windows superset of a detected subset."""
+    f = tmp_path / "greek.txt"
+    f.write_bytes(_GREEK)
+    main(["--minimal", str(f)])
+    main(["--minimal", "--prefer-superset", str(f)])
+    default, superset = capsys.readouterr().out.split()
+    assert default == chardet.detect(_GREEK)["encoding"] == "ISO-8859-7"
+    assert superset == chardet.detect(_GREEK, prefer_superset=True)["encoding"]
+    assert superset == "Windows-1253"
+
+
+def test_cli_no_compat_names(tmp_path: Path, capsys: pytest.CaptureFixture[str]):
+    """--no-compat-names reports the raw Python codec name."""
+    f = tmp_path / "japanese.txt"
+    f.write_bytes(_JAPANESE)
+    main(["--minimal", str(f)])
+    main(["--minimal", "--no-compat-names", str(f)])
+    default, raw = capsys.readouterr().out.split()
+    assert default == "EUC-JP"
+    assert raw == chardet.detect(_JAPANESE, compat_names=False)["encoding"]
+    assert raw == "euc_jis_2004"
+
+
+def test_cli_superset_and_raw_names_on_stdin(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    """Both flags combine, and apply to stdin as well as files."""
+    monkeypatch.setattr(sys, "stdin", io.TextIOWrapper(io.BytesIO(_GREEK)))
+    main(["--prefer-superset", "--no-compat-names"])
+    out = capsys.readouterr().out
+    assert out.startswith("stdin: cp1253 with confidence ")

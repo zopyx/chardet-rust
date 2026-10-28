@@ -11,7 +11,10 @@ use crate::detector::{
     detect_all_bytes, detect_bytes, validate_max_bytes, StreamingDetector, StreamingDetectorError,
 };
 use crate::enums::{EncodingEra, LanguageFilter};
+use crate::pipeline::markup::declarations;
+use crate::pipeline::orchestrator::{run_pipeline_with, PipelineOptions};
 use crate::pipeline::DEFAULT_MAX_BYTES;
+use std::collections::HashSet;
 
 fn map_streaming_error(err: StreamingDetectorError) -> PyErr {
     match err {
@@ -128,10 +131,200 @@ pub fn detect_all(
     Ok(list.into())
 }
 
-/// Load bigram models from bytes.
+/// Run the detection pipeline with the reference's full option set.
+///
+/// Returns results under their internal canonical names; output-name
+/// rendering (compat names, preferred supersets) stays on the Python side.
 #[pyfunction]
-fn _load_models(data: &[u8]) -> PyResult<()> {
-    init_models(data).map_err(|e| {
+#[pyo3(signature = (
+    byte_str,
+    encoding_era_bits = 63,
+    max_bytes = DEFAULT_MAX_BYTES,
+    include_encodings = None,
+    exclude_encodings = None,
+    no_match_encoding = "cp1252",
+    empty_input_encoding = "utf-8",
+    full_ranking = false,
+    input_truncated = false
+))]
+#[allow(clippy::too_many_arguments)]
+fn run_pipeline(
+    py: Python,
+    byte_str: &[u8],
+    encoding_era_bits: u8,
+    max_bytes: usize,
+    include_encodings: Option<Vec<String>>,
+    exclude_encodings: Option<Vec<String>>,
+    no_match_encoding: &str,
+    empty_input_encoding: &str,
+    full_ranking: bool,
+    input_truncated: bool,
+) -> PyResult<PyObject> {
+    validate_max_bytes(max_bytes).map_err(map_streaming_error)?;
+
+    let include: Option<HashSet<String>> =
+        include_encodings.map(|names| names.into_iter().collect());
+    let exclude: Option<HashSet<String>> =
+        exclude_encodings.map(|names| names.into_iter().collect());
+
+    let options = PipelineOptions {
+        include_encodings: include.as_ref(),
+        exclude_encodings: exclude.as_ref(),
+        no_match_encoding,
+        empty_input_encoding,
+        full_ranking,
+        input_truncated,
+    };
+
+    let results = run_pipeline_with(
+        byte_str,
+        EncodingEra::from_bits(encoding_era_bits),
+        max_bytes,
+        &options,
+    );
+
+    let list = PyList::empty(py);
+    for result in results {
+        list.append(result.to_py_dict(py, false)?)?;
+    }
+    Ok(list.into())
+}
+
+/// Debug helper: list the charset declarations the markup stage finds.
+#[pyfunction]
+fn _debug_declarations(py: Python, byte_str: &[u8]) -> PyResult<PyObject> {
+    let list = PyList::empty(py);
+    for declaration in declarations(byte_str) {
+        let item = PyDict::new(py);
+        match declaration.encoding {
+            Some(encoding) => item.set_item("encoding", encoding)?,
+            None => item.set_item("encoding", py.None())?,
+        }
+        item.set_item("mime_type", declaration.mime_type)?;
+        list.append(item)?;
+    }
+    Ok(list.into())
+}
+
+/// Debug helper: run the UTF-16/32 pattern stage alone.
+#[pyfunction]
+fn _debug_utf1632(py: Python, byte_str: &[u8]) -> PyResult<PyObject> {
+    let dict = PyDict::new(py);
+    match crate::pipeline::utf1632::detect_utf1632_patterns(byte_str) {
+        Some(result) => {
+            dict.set_item("encoding", result.encoding)?;
+            dict.set_item("confidence", result.confidence)?;
+        }
+        None => {
+            dict.set_item("encoding", py.None())?;
+            dict.set_item("confidence", 0.0)?;
+        }
+    }
+    Ok(dict.into())
+}
+
+/// Debug helper: list the encodings the bigram model set knows.
+#[pyfunction]
+fn _debug_model_names(py: Python) -> PyResult<PyObject> {
+    crate::pipeline::statistical::ensure_models_public();
+    let names = crate::pipeline::statistical::model_encoding_names();
+    Ok(PyList::new(py, names)?.into())
+}
+
+/// Debug helper: per-encoding statistical scores for a byte string.
+#[pyfunction]
+fn _debug_scores(py: Python, byte_str: &[u8], encodings: Vec<String>) -> PyResult<PyObject> {
+    let dict = PyDict::new(py);
+    crate::pipeline::statistical::ensure_models_public();
+    for name in encodings {
+        let (score, lang) = crate::pipeline::statistical::debug_score(byte_str, &name);
+        let item = PyDict::new(py);
+        item.set_item("score", score)?;
+        item.set_item("language", lang)?;
+        dict.set_item(name, item)?;
+    }
+    Ok(dict.into())
+}
+
+/// Debug helper: report the niche-Latin demotion decision for a byte string.
+#[pyfunction]
+fn _debug_demote(py: Python, byte_str: &[u8]) -> PyResult<PyObject> {
+    let dict = PyDict::new(py);
+    let diff = crate::encoding_tables::differing_high_bytes("hp-roman8", "iso8859-1");
+    dict.set_item("diff_len", diff.len())?;
+    let present: Vec<u8> = byte_str
+        .iter()
+        .copied()
+        .filter(|byte| diff.contains(byte))
+        .collect();
+    dict.set_item("differing_present", present)?;
+    let candidates = crate::registry::get_candidates(crate::enums::EncodingEra::All);
+    let valid = crate::pipeline::decode_validity::filter_by_validity(byte_str, &candidates);
+    let scored = crate::pipeline::statistical::score_candidates(
+        &byte_str[..byte_str.len().min(16384)],
+        &valid,
+        false,
+    );
+    let before: Vec<String> = scored
+        .iter()
+        .filter_map(|r| r.encoding.clone())
+        .take(4)
+        .collect();
+    dict.set_item("scored", before)?;
+    if let Some(top) = scored.first() {
+        dict.set_item("top_language", top.language.clone())?;
+        let target = scored
+            .iter()
+            .find(|r| r.encoding.as_deref() == Some("cp1252"));
+        if let Some(target) = target {
+            let diff = crate::encoding_tables::differing_high_bytes("hp-roman8", "iso8859-1");
+            let winner = crate::pipeline::confusion::arbitrate_distinguishing_bytes(
+                byte_str,
+                "hp-roman8",
+                "cp1252",
+                &diff,
+                Some(&std::collections::HashSet::from([top
+                    .language
+                    .clone()
+                    .unwrap_or_default()])),
+                Some(&std::collections::HashSet::from([target
+                    .language
+                    .clone()
+                    .unwrap_or_default()])),
+            );
+            dict.set_item("arbitration_winner", winner)?;
+            dict.set_item(
+                "should_demote",
+                crate::pipeline::postprocess::should_demote_public(byte_str, top, target),
+            )?;
+        }
+    }
+    let demoted = crate::pipeline::postprocess::demote_niche_latin(byte_str, scored);
+    let after: Vec<String> = demoted
+        .iter()
+        .filter_map(|r| r.encoding.clone())
+        .take(4)
+        .collect();
+    dict.set_item("demoted", after)?;
+    Ok(dict.into())
+}
+
+/// Load the bigram model artifacts.
+///
+/// # Arguments
+///
+/// * `models_data` - Raw bytes of `models.bin` (`CMD2`)
+/// * `idf_data` - Raw bytes of `idf.bin` (65536 IDF weights)
+/// * `rowmax_data` - Raw bytes of `rowmax.bin` (`CRM1`)
+/// * `langnorm_data` - Raw bytes of `langnorm.bin` (`CLN1`)
+#[pyfunction]
+fn _load_models(
+    models_data: &[u8],
+    idf_data: &[u8],
+    rowmax_data: &[u8],
+    langnorm_data: &[u8],
+) -> PyResult<()> {
+    init_models(models_data, idf_data, rowmax_data, langnorm_data).map_err(|e| {
         pyo3::exceptions::PyRuntimeError::new_err(format!("Failed to load models: {}", e))
     })
 }
@@ -217,6 +410,12 @@ impl UniversalDetector {
 fn _chardet_rs(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(detect, m)?)?;
     m.add_function(wrap_pyfunction!(detect_all, m)?)?;
+    m.add_function(wrap_pyfunction!(run_pipeline, m)?)?;
+    m.add_function(wrap_pyfunction!(_debug_declarations, m)?)?;
+    m.add_function(wrap_pyfunction!(_debug_utf1632, m)?)?;
+    m.add_function(wrap_pyfunction!(_debug_model_names, m)?)?;
+    m.add_function(wrap_pyfunction!(_debug_scores, m)?)?;
+    m.add_function(wrap_pyfunction!(_debug_demote, m)?)?;
     m.add_function(wrap_pyfunction!(_load_models, m)?)?;
     m.add_function(wrap_pyfunction!(_models_loaded, m)?)?;
 

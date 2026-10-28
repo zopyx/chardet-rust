@@ -13,16 +13,16 @@ from chardet.pipeline.orchestrator import run_pipeline
 _CJK_ENCODINGS = frozenset(
     {
         "gb18030",
-        "big5",
+        "big5hkscs",
         "cp932",
         "cp949",
-        "euc-jp",
-        "euc-kr",
-        "shift_jis",
+        "euc_jis_2004",
+        "euc_kr",
+        "shift_jis_2004",
         "johab",
-        "hz-gb-2312",
-        "iso-2022-jp",
-        "iso-2022-kr",
+        "hz",
+        "iso2022_jp_2",
+        "iso2022_kr",
     }
 )
 
@@ -45,12 +45,12 @@ def test_real_cjk_still_detected():
     """Real CJK text should still be detected as a CJK encoding."""
     data = "これはテストです。日本語のテキストです。".encode("shift_jis")
     result = run_pipeline(data, EncodingEra.ALL)
-    assert result[0].encoding in {"shift_jis", "cp932"}
+    assert result[0].encoding in {"shift_jis_2004", "cp932"}
 
 
 def test_real_chinese_still_detected():
     """Real Chinese text should still be detected as a CJK encoding (not gated out)."""
-    data = "这是一个测试。中文文本应该被正确检测。".encode("gb18030")
+    data = "这是一个测试。中文文本应该被正确检测。".encode("GB18030")
     result = run_pipeline(data, EncodingEra.ALL)
     # The gate should not eliminate CJK candidates when data has real multi-byte
     # sequences.  Exact CJK differentiation (gb18030 vs cp949 vs big5) is a
@@ -70,12 +70,12 @@ def test_real_korean_still_detected():
 def test_german_macroman_not_detected_as_cjk() -> None:
     """German mac-roman text must not be detected as cp932."""
     test_file = (
-        Path(__file__).parent / "data" / "macroman-german" / "culturax_mC4_83756.txt"
+        Path(__file__).parent / "data" / "macroman-de" / "culturax_mC4_83756.txt"
     )
     if not test_file.exists():
         pytest.skip("Test data not available")
     data = test_file.read_bytes()
-    result = chardet.detect(data, encoding_era=EncodingEra.ALL)
+    result = chardet.detect(data, encoding_era=EncodingEra.ALL, compat_names=False)
     assert result["encoding"] not in _CJK_ENCODINGS, (
         f"European text falsely detected as {result['encoding']}"
     )

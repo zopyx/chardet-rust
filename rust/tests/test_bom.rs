@@ -16,6 +16,8 @@ fn test_utf8_bom() {
             encoding: Some("utf-8-sig".to_string()),
             confidence: 1.0,
             language: None,
+            mime_type: None,
+            fallback: None,
         })
     );
 }
@@ -30,6 +32,8 @@ fn test_utf16_le_bom() {
             encoding: Some("utf-16-le".to_string()),
             confidence: 1.0,
             language: None,
+            mime_type: None,
+            fallback: None,
         })
     );
 }
@@ -44,6 +48,8 @@ fn test_utf16_be_bom() {
             encoding: Some("utf-16-be".to_string()),
             confidence: 1.0,
             language: None,
+            mime_type: None,
+            fallback: None,
         })
     );
 }
@@ -58,6 +64,8 @@ fn test_utf32_le_bom() {
             encoding: Some("utf-32-le".to_string()),
             confidence: 1.0,
             language: None,
+            mime_type: None,
+            fallback: None,
         })
     );
 }
@@ -72,6 +80,8 @@ fn test_utf32_be_bom() {
             encoding: Some("utf-32-be".to_string()),
             confidence: 1.0,
             language: None,
+            mime_type: None,
+            fallback: None,
         })
     );
 }

@@ -43,9 +43,13 @@ pub mod ascii;
 pub mod binary;
 pub mod bom;
 pub mod confusion;
+pub mod decode_validity;
 pub mod escape;
+pub mod language;
+pub mod magic;
 pub mod markup;
 pub mod orchestrator;
+pub mod postprocess;
 pub mod statistical;
 pub mod structural;
 pub mod utf1632;
@@ -70,7 +74,52 @@ pub const MINIMUM_THRESHOLD: f64 = 0.20;
 /// Limiting analysis to the first 200KB provides a good balance between
 /// accuracy and performance. Most encoding signatures are detectable
 /// within this limit.
+/// Byte cap for evidence-gathering scan windows.
+pub const EVIDENCE_CAP_BYTES: usize = 256 * 1024;
+
 pub const DEFAULT_MAX_BYTES: usize = 200_000;
+
+/// Default confidence for binary detection.
+pub const DEFAULT_BINARY_CONFIDENCE: f64 = 0.10;
+
+/// Default confidence for empty input.
+pub const DEFAULT_EMPTY_INPUT_CONFIDENCE: f64 = 0.10;
+
+/// Confidence assigned to generic low-confidence fallbacks (e.g. windows-1252).
+pub const DEFAULT_LOW_CONFIDENCE: f64 = 0.10;
+
+/// Maximum possible confidence score.
+pub const MAX_CONFIDENCE: f64 = 1.0;
+
+/// Minimum possible confidence score.
+pub const MIN_CONFIDENCE: f64 = 0.0;
+
+/// Confidence for simplified UTF-8 scoring when non-ASCII bytes are present.
+pub const SIMPLIFIED_UTF8_CONFIDENCE: f64 = 0.95;
+
+/// Confidence for simplified ASCII scoring when no non-ASCII bytes are present.
+pub const SIMPLIFIED_ASCII_CONFIDENCE: f64 = 1.0;
+
+/// Base confidence for simplified single-byte scoring when non-ASCII bytes are present.
+pub const SIMPLIFIED_SINGLE_BYTE_BASE_CONFIDENCE: f64 = 0.5;
+
+/// Multiplier for high-byte entropy in simplified single-byte scoring.
+pub const SIMPLIFIED_SINGLE_BYTE_ENTROPY_MULTIPLIER: f64 = 0.5;
+
+/// Confidence for simplified single-byte scoring when no non-ASCII bytes are present.
+pub const SIMPLIFIED_SINGLE_BYTE_NO_HIGH_BYTES_CONFIDENCE: f64 = 0.3;
+
+/// Confidence for simplified multi-byte scoring when characteristic patterns are found.
+pub const SIMPLIFIED_MULTIBYTE_PATTERN_CONFIDENCE: f64 = 0.85;
+
+/// Confidence for simplified multi-byte scoring when no characteristic patterns are found.
+pub const SIMPLIFIED_MULTIBYTE_NO_PATTERN_CONFIDENCE: f64 = 0.1;
+
+/// Default confidence for simplified multi-byte scoring when no specific patterns are matched.
+pub const SIMPLIFIED_MULTIBYTE_DEFAULT_CONFIDENCE: f64 = 0.5;
+
+/// Normalization factor for Shannon entropy calculation (log2(128)).
+pub const ENTROPY_NORMALIZATION_FACTOR: f64 = 7.0;
 
 /// A single encoding detection result.
 ///
@@ -95,6 +144,21 @@ pub struct DetectionResult {
     ///
     /// Examples: "en", "ru", "ja", "zh"
     pub language: Option<String>,
+
+    /// MIME type of the detected content, when a stage knows it.
+    ///
+    /// Set by the magic-number stage (`application/pdf`, `image/png`, ...) and
+    /// otherwise left `None`; the public API defaults it to `text/plain` for
+    /// text and `application/octet-stream` for binary.
+    pub mime_type: Option<String>,
+
+    /// Fallback parameter that produced this result, when it is one.
+    ///
+    /// `Some("no_match_encoding")` or `Some("empty_input_encoding")` marks a
+    /// sentinel answer rather than a detection: the caller's filters excluded
+    /// the fallback, and the Python seam uses this to warn at the caller's
+    /// frame, exactly as the reference pipeline does.
+    pub fallback: Option<String>,
 }
 
 impl DetectionResult {
@@ -120,6 +184,49 @@ impl DetectionResult {
             encoding: encoding.map(|s| s.to_string()),
             confidence,
             language: language.map(|s| s.to_string()),
+            mime_type: None,
+            fallback: None,
+        }
+    }
+
+    /// Create a result that also carries a MIME type.
+    pub fn new_with_mime(
+        encoding: Option<&str>,
+        confidence: f64,
+        language: Option<&str>,
+        mime_type: Option<&str>,
+    ) -> Self {
+        Self {
+            encoding: encoding.map(|s| s.to_string()),
+            confidence,
+            language: language.map(|s| s.to_string()),
+            mime_type: mime_type.map(|s| s.to_string()),
+            fallback: None,
+        }
+    }
+
+    /// Record which fallback parameter produced this sentinel result.
+    pub fn with_fallback(mut self, param_name: &str) -> Self {
+        self.fallback = Some(param_name.to_string());
+        self
+    }
+
+    /// Return a copy of this result with `mime_type` defaulted for the caller.
+    pub fn with_default_mime(&self) -> Self {
+        if self.mime_type.is_some() {
+            return self.clone();
+        }
+        let mime = if self.encoding.is_some() {
+            "text/plain"
+        } else {
+            "application/octet-stream"
+        };
+        Self {
+            encoding: self.encoding.clone(),
+            confidence: self.confidence,
+            language: self.language.clone(),
+            mime_type: Some(mime.to_string()),
+            fallback: self.fallback.clone(),
         }
     }
 
@@ -165,9 +272,19 @@ impl DetectionResult {
             py.None()
         };
 
+        let mime_obj: PyObject = match self.mime_type.as_ref() {
+            Some(mime) => mime.clone().into_py(py),
+            None => py.None(),
+        };
+
         dict.set_item("encoding", encoding_obj)?;
         dict.set_item("confidence", self.confidence)?;
         dict.set_item("language", language_obj)?;
+        dict.set_item("mime_type", mime_obj)?;
+        match self.fallback.as_ref() {
+            Some(param) => dict.set_item("fallback", param.clone().into_py(py))?,
+            None => dict.set_item("fallback", py.None())?,
+        }
 
         Ok(dict.into())
     }
@@ -179,6 +296,8 @@ impl Default for DetectionResult {
             encoding: None,
             confidence: 0.0,
             language: None,
+            mime_type: None,
+            fallback: None,
         }
     }
 }

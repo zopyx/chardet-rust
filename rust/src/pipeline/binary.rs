@@ -13,10 +13,16 @@
 /// the content is classified as binary.
 const BINARY_THRESHOLD: f64 = 0.01;
 
-/// Threshold for null byte ratio indicating binary content.
-///
-/// If more than 1% of bytes are null (0x00), the content is likely binary.
-const NULL_BYTE_THRESHOLD: f64 = 0.01;
+/// Minimum fraction of high bytes among non-space bytes for EBCDIC text.
+const EBCDIC_MIN_HIGH_FRACTION: f64 = 0.25;
+
+/// Minimum fraction of EBCDIC word separators (space or HT) in the data.
+const EBCDIC_MIN_SPACE_FRACTION: f64 = 0.02;
+
+/// The EBCDIC space, horizontal-tab and newline bytes.
+const EBCDIC_SPACE: u8 = 0x40;
+const EBCDIC_HT: u8 = 0x05;
+const EBCDIC_NL: u8 = 0x15;
 
 /// Check for common binary file signatures (magic numbers).
 ///
@@ -44,6 +50,7 @@ const NULL_BYTE_THRESHOLD: f64 = 0.01;
 /// | 7z | `7z\xBC\xAF` |
 /// | MP3 | `ID3` |
 /// | MP4 | `....ftyp` |
+#[allow(dead_code)]
 pub fn has_binary_signature(data: &[u8]) -> bool {
     if data.len() < 4 {
         return false;
@@ -116,26 +123,34 @@ pub fn is_binary(data: &[u8], max_bytes: usize) -> bool {
         return false;
     }
 
-    // First check for binary file signatures
-    if has_binary_signature(data) {
-        return true;
-    }
-
-    // Count binary-indicator control bytes (0x00-0x08, 0x0E-0x1A, 0x1C-0x1F)
-    // Excludes \t (0x09), \n (0x0A), \v (0x0B), \f (0x0C), \r (0x0D)
-    // Also excludes 0x0E (SO), 0x0F (SI), 0x1B (ESC) used by ISO-2022 escape sequences
-    let null_count: usize = data.iter().filter(|&&b| b == 0x00).count();
-    let control_count: usize = data
+    // Binary-indicator control bytes: 0x00-0x08 and 0x0E-0x1F.  Tab, newline,
+    // vertical tab, form feed and carriage return are text, not indicators.
+    let binary_count = data
         .iter()
-        .filter(|&&b| (b <= 0x08) || (0x10..=0x1A).contains(&b) || (0x1C..=0x1F).contains(&b))
+        .filter(|&&b| b <= 0x08 || (0x0E..=0x1F).contains(&b))
         .count();
-
-    let binary_count = null_count + control_count;
-
-    // High proportion of null bytes is a strong indicator of binary
-    if null_count > 0 && (null_count as f64) / (data.len() as f64) > NULL_BYTE_THRESHOLD {
-        return true;
+    if (binary_count as f64) / (data.len() as f64) <= BINARY_THRESHOLD {
+        return false;
     }
 
-    (binary_count as f64) / (data.len() as f64) > BINARY_THRESHOLD
+    // Above the threshold — but EBCDIC text uses 0x05 (HT) and 0x15 (NL) as
+    // whitespace, which are binary indicators in ASCII-compatible data.  If the
+    // excess comes entirely from those two bytes and the data looks like
+    // EBCDIC text, treat it as text.
+    let ht_count = data.iter().filter(|&&b| b == EBCDIC_HT).count();
+    let nl_count = data.iter().filter(|&&b| b == EBCDIC_NL).count();
+    let hard_count = binary_count.saturating_sub(ht_count + nl_count);
+    if (hard_count as f64) / (data.len() as f64) > BINARY_THRESHOLD {
+        return true;
+    }
+    let space_count = data.iter().filter(|&&b| b == EBCDIC_SPACE).count() + ht_count;
+    let non_space = data.len().saturating_sub(space_count);
+    if non_space == 0 {
+        return false;
+    }
+    let high_count = data.iter().filter(|&&b| b >= 0x80).count();
+    if (high_count as f64) / (non_space as f64) < EBCDIC_MIN_HIGH_FRACTION {
+        return true;
+    }
+    (space_count as f64) / (data.len() as f64) < EBCDIC_MIN_SPACE_FRACTION
 }

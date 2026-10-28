@@ -28,6 +28,19 @@ pub enum EncodingEra {
 }
 
 impl EncodingEra {
+    /// Map the Python `IntFlag` value onto the matching variant.
+    pub fn from_bits(bits: u8) -> EncodingEra {
+        match bits {
+            1 => EncodingEra::ModernWeb,
+            2 => EncodingEra::LegacyIso,
+            4 => EncodingEra::LegacyMac,
+            8 => EncodingEra::LegacyRegional,
+            16 => EncodingEra::Dos,
+            32 => EncodingEra::Mainframe,
+            _ => EncodingEra::All,
+        }
+    }
+
     /// Check if this era includes the given era flag.
     pub fn contains(&self, other: EncodingEra) -> bool {
         (*self as i32 & other as i32) != 0

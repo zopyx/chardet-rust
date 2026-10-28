@@ -1,6 +1,6 @@
 # Makefile for chardet package builds
 
-.PHONY: all clean build sdist wheel wheels wheels-linux wheels-all check upload upload-all upload-test test parity
+.PHONY: all clean build-ext build sdist wheel wheels wheels-linux wheels-all check upload upload-all upload-test test parity
 
 # Default target
 all: clean build
@@ -65,9 +65,28 @@ upload-all: check
 upload-test: check
 	uvx twine upload --repository testpypi dist/*
 
+# Compile the Rust extension in place (always reflects the current sources).
+#
+# `uv pip install -e rust` caches the built wheel by package metadata, not by
+# Rust source content, so after editing rust/src/* it can silently keep an old
+# _chardet_rs.so.  Building with cargo and copying the cdylib makes the
+# extension the tests import match the working tree.
+CARGO ?= $(HOME)/.cargo/bin/cargo
+PYO3_PYTHON ?= $(CURDIR)/.venv/bin/python
+EXT_SO = rust/chardet_rs/_chardet_rs.abi3.so
+
+build-ext:
+	PATH="$(HOME)/.cargo/bin:$$PATH" \
+	PYO3_PYTHON="$(PYO3_PYTHON)" \
+	PYO3_BUILD_EXTENSION_MODULE=1 \
+	$(CARGO) rustc --manifest-path rust/Cargo.toml --release \
+		--features extension-module --lib --crate-type cdylib -- \
+		-C link-arg=-undefined -C link-arg=dynamic_lookup \
+		-C link-arg=-Wl,-install_name,@rpath/chardet_rs._chardet_rs.abi3.so
+	cp rust/target/release/lib_chardet_rs.dylib $(EXT_SO)
+
 # Run tests
-test:
-	uv pip install -e rust
+test: build-ext
 	PYTHONPATH=rust:src:scripts uv run pytest
 
 # Rust-vs-pytest parity report

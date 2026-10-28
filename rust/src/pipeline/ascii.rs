@@ -48,23 +48,33 @@ use super::DetectionResult;
 /// // Empty data
 /// assert!(detect_ascii(b"").is_none());
 /// ```
+/// Sparse null bytes are tolerated up to this fraction (find -print0 output).
+const MAX_NULL_FRACTION: f64 = 0.05;
+
 pub fn detect_ascii(data: &[u8]) -> Option<DetectionResult> {
     if data.is_empty() {
         return None;
     }
-
-    // Check if all bytes are allowed ASCII:
-    // - Tab (0x09), newline (0x0A), carriage return (0x0D)
-    // - Printable ASCII (0x20-0x7E)
-    let is_ascii = data
-        .iter()
-        .all(|&b| b == 0x09 || b == 0x0A || b == 0x0D || (0x20..=0x7E).contains(&b));
-
-    if is_ascii {
-        Some(DetectionResult::new(Some("ascii"), 1.0, None))
-    } else {
-        None
+    // Non-ASCII data can never pass: the allowed set is pure ASCII.
+    if data.iter().any(|&b| b >= 0x80) {
+        return None;
     }
+    // ASCII_TEXT_BYTES is the *allowed* set: tab, LF, CR and printable ASCII.
+    let allowed = |b: u8| b == 0x09 || b == 0x0A || b == 0x0D || (0x20..=0x7F).contains(&b);
+    let disallowed = data.iter().filter(|&&b| !allowed(b)).count();
+    if disallowed == 0 {
+        return Some(DetectionResult::new(Some("ascii"), 1.0, None));
+    }
+    let null_count = data.iter().filter(|&&b| b == 0).count();
+    // Any disallowed byte that is not a null disqualifies the data.
+    if disallowed != null_count {
+        return None;
+    }
+    // Sparse nulls (find -print0 output) are tolerated at 0.99, not 1.0.
+    if (null_count as f64) / (data.len() as f64) <= MAX_NULL_FRACTION {
+        return Some(DetectionResult::new(Some("ascii"), 0.99, None));
+    }
+    None
 }
 
 /// Check if a byte is valid ASCII whitespace.

@@ -13,14 +13,14 @@ use crate::registry::REGISTRY;
 const VARIANT_ENCODINGS: &[&str] = &[
     "utf-8",
     "utf8",
-    "windows-1252",
-    "iso-8859-1",
-    "iso-8859-15",
-    "windows-1251",
+    "cp1252",
+    "iso8859-1",
+    "iso8859-15",
+    "cp1251",
     "koi8-r",
-    "iso-8859-5",
-    "windows-1250",
-    "iso-8859-2",
+    "iso8859-5",
+    "cp1250",
+    "iso8859-2",
     "big5",
     "big5hkscs",
     "gb18030",
@@ -28,8 +28,8 @@ const VARIANT_ENCODINGS: &[&str] = &[
     "shift_jis",
     "cp932",
     "euc-jp",
-    "euc-jis-2004",
-    "euc-kr",
+    "euc_jis_2004",
+    "euc_kr",
     "cp949",
 ];
 
@@ -54,8 +54,8 @@ const VARIANT_ENCODINGS: &[&str] = &[
 /// use _chardet_rs::models::has_model_variants;
 ///
 /// assert!(has_model_variants("utf-8"));
-/// assert!(has_model_variants("windows-1252"));
-/// assert!(!has_model_variants("windows-1255")); // Hebrew-only
+/// assert!(has_model_variants("cp1252"));
+/// assert!(!has_model_variants("cp1255")); // Hebrew-only
 /// ```
 pub fn has_model_variants(encoding: &str) -> bool {
     VARIANT_ENCODINGS.contains(&encoding.to_lowercase().as_str())
@@ -80,7 +80,7 @@ pub fn has_model_variants(encoding: &str) -> bool {
 /// ```
 /// use _chardet_rs::models::infer_language;
 ///
-/// assert_eq!(infer_language("windows-1251"), Some("ru"));
+/// assert_eq!(infer_language("cp1251"), Some("ru"));
 /// assert_eq!(infer_language("shift_jis"), Some("ja"));
 /// assert_eq!(infer_language("utf-8"), None); // Multi-language
 /// ```

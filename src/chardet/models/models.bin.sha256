@@ -8,4 +8,4 @@
 #   shasum -a 256 src/chardet/models/models.bin > src/chardet/models/models.bin.sha256
 #
 # Format: <64-character hex hash>  models.bin
-90421949cfc7380de3fda8e9ce606e6a6e9834562ccbcc8f0b772393d05afb93  models.bin
+47371a8ad8422dc67df2f46db6e9a8e67551d6f5472d7d0c957655759e4922f0  models.bin

@@ -1,323 +1,142 @@
-"""Encoding equivalences and legacy name remapping.
+"""Backward-compatibility shim for ``chardet.equivalences``.
 
-This module defines:
+This module's contents were split in chardet 7.5: accuracy-evaluation tables
+and predicates moved to :mod:`chardet.evaluation`, and public-API encoding-name
+remapping moved to :mod:`chardet.output_names`.  This module proxies every
+attribute to whichever of those two now owns it, so existing callers keep
+working.
 
-1. **Directional supersets** for accuracy evaluation: detecting a superset
-   encoding when the expected encoding is a subset is correct (e.g., detecting
-   utf-8 when expected is ascii), but not the reverse.
-
-2. **Bidirectional equivalents**: groups of encodings where detecting any
-   member when another member was expected is considered correct.  This
-   includes UTF-16/UTF-32 endian variants (which encode the same text with
-   different byte order) and ISO-2022-JP branch variants (which are
-   compatible extensions of the same base encoding).
-
-3. **Preferred superset mapping** for the ``should_rename_legacy`` API option:
-   replaces detected ISO/subset encoding names with their Windows/CP superset
-   equivalents that modern software actually uses.
+.. deprecated:: 7.5
+    Import from :mod:`chardet.evaluation` (``is_correct``,
+    ``is_equivalent_detection``, ``is_language_equivalent``, ``SUPERSETS``,
+    ``BIDIRECTIONAL_GROUPS``, ``LANGUAGE_EQUIVALENCES``) or
+    :mod:`chardet.output_names` (``apply_compat_names``,
+    ``apply_preferred_superset``, ``apply_legacy_rename``,
+    ``PREFERRED_SUPERSET``) instead.
+    Will be removed in chardet 8.0.
 """
 
 from __future__ import annotations
 
-import codecs
-import unicodedata
+import sys
+import warnings
+from types import ModuleType
+from typing import Any
 
-from chardet.pipeline import DetectionDict
+from chardet import evaluation, output_names
 
+#: Modules that now own the names this one used to define, searched in order.
+#: Every name the pre-split module exposed lives in one of them --- including
+#: the private helpers (``_chars_equivalent``, ``_remap_encoding``, the
+#: normalized lookup tables) and the imported-module names (``unicodedata``,
+#: ``lookup_encoding``) that leaked into the old namespace.
+_SOURCES: tuple[ModuleType, ...] = (evaluation, output_names)
 
-def normalize_encoding_name(name: str) -> str:
-    """Normalize encoding name for comparison.
-
-    :param name: The encoding name to normalize.
-    :returns: The canonical codec name, or a lowered/stripped fallback.
-    """
-    try:
-        return codecs.lookup(name).name
-    except LookupError:
-        return name.lower().replace("-", "").replace("_", "")
-
-
-# Directional superset relationships: detecting any of the supersets
-# when the expected encoding is the subset counts as correct.
-# E.g., expected=ascii, detected=utf-8 -> correct (utf-8 ⊃ ascii).
-# But expected=utf-8, detected=ascii -> wrong (ascii ⊄ utf-8).
-#
-# Note: some subset keys (iso-8859-11) are not in the detection
-# registry — the detector never returns them.  They appear here because
-# chardet test-suite expected values use these names, so the superset
-# mapping is needed for accuracy evaluation only.
-SUPERSETS: dict[str, frozenset[str]] = {
-    "ascii": frozenset({"utf-8", "windows-1252"}),
-    "tis-620": frozenset({"iso-8859-11", "cp874"}),
-    "iso-8859-11": frozenset({"cp874"}),
-    "gb2312": frozenset({"gb18030"}),
-    "gbk": frozenset({"gb18030"}),
-    "big5": frozenset({"big5hkscs", "cp950"}),
-    "shift_jis": frozenset({"cp932", "shift_jis_2004"}),
-    "shift-jisx0213": frozenset({"shift_jis_2004"}),
-    "euc-jp": frozenset({"euc-jis-2004"}),
-    "euc-jisx0213": frozenset({"euc-jis-2004"}),
-    "euc-kr": frozenset({"cp949"}),
-    "cp037": frozenset({"cp500", "cp1140"}),
-    "cp1125": frozenset({"cp866"}),
-    "cp500": frozenset({"cp1140"}),
-    "cp775": frozenset({"windows-1257"}),
-    "cp858": frozenset({"cp437", "cp850"}),
-    # ISO-2022-JP subsets: any branch variant is acceptable
-    "iso-2022-jp": frozenset({"iso2022-jp-2", "iso2022-jp-2004", "iso2022-jp-ext"}),
-    "iso2022-jp-1": frozenset({"iso2022-jp-2", "iso2022-jp-ext"}),
-    "iso2022-jp-3": frozenset({"iso2022-jp-2004"}),
-    # ISO/Windows superset pairs
-    "iso-8859-1": frozenset({"windows-1252"}),
-    "iso-8859-2": frozenset({"windows-1250"}),
-    "iso-8859-4": frozenset({"windows-1257"}),
-    "iso-8859-5": frozenset({"windows-1251"}),
-    "iso-8859-6": frozenset({"windows-1256"}),
-    "iso-8859-7": frozenset({"windows-1253"}),
-    "iso-8859-8": frozenset({"windows-1255"}),
-    "iso-8859-9": frozenset({"windows-1254"}),
-    "iso-8859-13": frozenset({"windows-1257"}),
-    "iso-8859-14": frozenset({"windows-1252"}),
-    "iso-8859-15": frozenset({"windows-1252"}),
-    "iso-8859-16": frozenset({"windows-1250"}),
-}
-
-# Preferred superset name for each encoding, used by the ``should_rename_legacy``
-# API option.  When enabled, detected encoding names are replaced with the
-# Windows/CP superset that modern software actually uses (browsers, editors,
-# etc. treat these ISO subsets as their Windows counterparts).
-# Values use display-cased names (e.g. "Windows-1252") to match chardet 6.x output.
-PREFERRED_SUPERSET: dict[str, str] = {
-    "ascii": "Windows-1252",
-    "euc-kr": "CP949",
-    "iso-8859-1": "Windows-1252",
-    "iso-8859-2": "Windows-1250",
-    "iso-8859-5": "Windows-1251",
-    "iso-8859-6": "Windows-1256",
-    "iso-8859-7": "Windows-1253",
-    "iso-8859-8": "Windows-1255",
-    "iso-8859-9": "Windows-1254",
-    "iso-8859-11": "CP874",
-    "iso-8859-13": "Windows-1257",
-    "tis-620": "CP874",
-}
-
-
-def apply_legacy_rename(
-    result: DetectionDict,
-) -> DetectionDict:
-    """Replace the encoding name with its preferred Windows/CP superset.
-
-    Modifies the ``"encoding"`` value in *result* in-place and returns *result*
-    for fluent chaining.
-
-    :param result: A detection result dict containing an ``"encoding"`` key.
-    :returns: The same *result* dict, modified in-place.
-    """
-    enc = result.get("encoding")
-    if isinstance(enc, str):
-        result["encoding"] = PREFERRED_SUPERSET.get(enc.lower(), enc)
-    return result
-
-
-# Bidirectional equivalents -- groups where any member is acceptable for any other.
-BIDIRECTIONAL_GROUPS: tuple[tuple[str, ...], ...] = (
-    ("utf-16", "utf-16-le", "utf-16-be"),
-    ("utf-32", "utf-32-le", "utf-32-be"),
-    ("iso2022-jp-2", "iso2022-jp-2004", "iso2022-jp-ext"),
-    ("cp037", "cp500", "cp1140"),
+#: The documented surface, for ``from chardet.equivalences import *``.  None
+#: of these names is defined here --- they resolve through the proxy below,
+#: which is also why ``__all__`` is built rather than written as a literal:
+#: a literal is checked against the module's own bindings, and every entry
+#: would read as undefined.
+_PUBLIC_NAMES = (
+    "BIDIRECTIONAL_GROUPS",
+    "LANGUAGE_EQUIVALENCES",
+    "PREFERRED_SUPERSET",
+    "SUPERSETS",
+    "apply_compat_names",
+    "apply_legacy_rename",
+    "apply_preferred_superset",
+    "is_correct",
+    "is_equivalent_detection",
+    "is_language_equivalent",
 )
 
-# Bidirectional language equivalences — groups of ISO 639-1 codes for
-# languages that are nearly indistinguishable by statistical detection.
-# Detecting any member when another member of the same group was expected
-# is considered acceptable.
-LANGUAGE_EQUIVALENCES: tuple[tuple[str, ...], ...] = (
-    ("sk", "cs"),  # Slovak / Czech — ~85% mutual intelligibility
-    (
-        "uk",
-        "ru",
-        "bg",
-        "be",
-    ),  # East Slavic + Bulgarian — shared Cyrillic, high written overlap
-    ("ms", "id"),  # Malay / Indonesian — standardized variants of one language
-    (
-        "no",
-        "da",
-        "sv",
-    ),  # Scandinavian — mutual intelligibility across the dialect continuum
-)
+__all__ = list(_PUBLIC_NAMES)
 
 
-def _build_language_equiv_index() -> dict[str, frozenset[str]]:
-    """Build a lookup: ISO code -> frozenset of all equivalent ISO codes."""
-    result: dict[str, frozenset[str]] = {}
-    for group in LANGUAGE_EQUIVALENCES:
-        group_set = frozenset(group)
-        for code in group:
-            result[code] = group_set
-    return result
+#: Which module owns each name the pre-split module exposed, fixed at
+#: import.  Ownership is a fact about the split, not about what happens to
+#: be bound at lookup time: looking it up live would let a deletion strand
+#: the name, since the re-set that follows would find no owner and land on
+#: this module instead.  That delete-then-set is exactly the round trip
+#: ``unittest.mock.patch.object`` performs on exit.
+_OWNERS: dict[str, ModuleType] = {}
+for _source in _SOURCES:
+    for _name in vars(_source):
+        if not (_name.startswith("__") and _name.endswith("__")):
+            _OWNERS.setdefault(_name, _source)
+del _source, _name
 
 
-_LANGUAGE_EQUIV: dict[str, frozenset[str]] = _build_language_equiv_index()
+def _owner(name: str) -> ModuleType | None:
+    """Return the module that now owns *name*, or ``None`` if neither does.
 
-
-def is_language_equivalent(expected: str, detected: str) -> bool:
-    """Check whether *detected* is an acceptable language for *expected*.
-
-    Returns ``True`` when *expected* and *detected* are the same ISO 639-1
-    code, or belong to the same equivalence group in
-    :data:`LANGUAGE_EQUIVALENCES`.
-
-    :param expected: Expected ISO 639-1 language code.
-    :param detected: Detected ISO 639-1 language code.
-    :returns: ``True`` if the languages are equivalent.
+    Dunders are never proxied: every module carries ``__spec__``,
+    ``__name__`` and friends, and the import system assigns them on this
+    module directly (``importlib.reload`` does exactly that), which without
+    this guard would overwrite the owning module's own.
     """
-    if expected == detected:
-        return True
-    group = _LANGUAGE_EQUIV.get(expected)
-    return group is not None and detected in group
+    return _OWNERS.get(name)
 
 
-# Pre-built normalized lookups for fast comparison.
-_NORMALIZED_SUPERSETS: dict[str, frozenset[str]] = {
-    normalize_encoding_name(subset): frozenset(
-        normalize_encoding_name(s) for s in supersets
-    )
-    for subset, supersets in SUPERSETS.items()
-}
-
-
-def _build_bidir_index() -> dict[str, frozenset[str]]:
-    """Build the bidirectional equivalence lookup index."""
-    result: dict[str, frozenset[str]] = {}
-    for group in BIDIRECTIONAL_GROUPS:
-        normed = frozenset(normalize_encoding_name(n) for n in group)
-        for name in group:
-            result[normalize_encoding_name(name)] = normed
-    return result
-
-
-_NORMALIZED_BIDIR: dict[str, frozenset[str]] = _build_bidir_index()
-
-
-def is_correct(expected: str | None, detected: str | None) -> bool:
-    """Check whether *detected* is an acceptable answer for *expected*.
-
-    Acceptable means:
-
-    1. Exact match (after normalization), OR
-    2. Both belong to the same bidirectional byte-order group, OR
-    3. *detected* is a known superset of *expected*.
-
-    :param expected: The expected encoding name, or ``None`` for binary files.
-    :param detected: The detected encoding name, or ``None``.
-    :returns: ``True`` if the detection is acceptable.
-    """
-    if expected is None:
-        return detected is None
-    if detected is None:
-        return False
-    norm_exp = normalize_encoding_name(expected)
-    norm_det = normalize_encoding_name(detected)
-
-    # 1. Exact match
-    if norm_exp == norm_det:
-        return True
-
-    # 2. Bidirectional (same byte-order group)
-    if norm_exp in _NORMALIZED_BIDIR and norm_det in _NORMALIZED_BIDIR[norm_exp]:
-        return True
-
-    # 3. Superset is acceptable (detected is a known superset of expected)
-    return (
-        norm_exp in _NORMALIZED_SUPERSETS
-        and norm_det in _NORMALIZED_SUPERSETS[norm_exp]
+def _warn(name: str, owner: ModuleType) -> None:
+    """Emit the deprecation warning for one accessed name."""
+    warnings.warn(
+        f"chardet.equivalences is deprecated; import {name} from "
+        f"{owner.__name__} instead. Will be removed in chardet 8.0.",
+        DeprecationWarning,
+        # _warn -> __getattr__/__setattr__ -> the caller being warned about.
+        stacklevel=3,
     )
 
 
-def _strip_combining(text: str) -> str:
-    """NFKD-normalize *text* and strip all combining marks."""
-    nfkd = unicodedata.normalize("NFKD", text)
-    return "".join(c for c in nfkd if not unicodedata.combining(c))
+class _EquivalencesShim(ModuleType):
+    """Module type that proxies attributes to the module that now owns them.
 
-
-# Pre-computed symbol pair lookups for O(1) equivalence checks.
-# Both orderings are stored to avoid constructing temporaries per call.
-_EQUIVALENT_SYMBOL_PAIRS: frozenset[tuple[str, str]] = frozenset(
-    {
-        ("¤", "€"),
-        ("€", "¤"),
-        ("Á", "╡"),
-        ("╡", "Á"),
-        ("€", "ı"),
-        ("ı", "€"),
-        ("ű", "ø"),
-        ("ø", "ű"),
-    }
-)
-
-
-def _chars_equivalent(a: str, b: str) -> bool:
-    """Return True if characters *a* and *b* are functionally equivalent.
-
-    Equivalent means:
-    - Same character, OR
-    - Same base letter after stripping combining marks, OR
-    - An explicitly listed symbol equivalence (e.g. ¤ ↔ €)
+    Proxying rather than re-exporting by value preserves two properties the
+    pre-split module had.  Reads, writes, and deletes stay indirected:
+    rebinding ``chardet.equivalences.PREFERRED_SUPERSET`` rebinds the table
+    :func:`~chardet.output_names.apply_preferred_superset` actually reads, so
+    a monkeypatching caller is not silently ignored, and a
+    ``unittest.mock.patch.object`` on this module patches the owner and
+    restores it on exit.  And the deprecation
+    fires per accessed name, naming both the name and its new home, instead
+    of once per process at import time --- which attributed the warning to
+    whoever imported first, said nothing about which symbol was deprecated,
+    and turned ``import chardet.equivalences`` into a hard error under
+    ``-W error::DeprecationWarning``.
     """
-    if a == b:
-        return True
-    if (a, b) in _EQUIVALENT_SYMBOL_PAIRS:
-        return True
-    # Compare base letters after stripping combining marks.
-    return _strip_combining(a) == _strip_combining(b)
+
+    def __getattr__(self, name: str) -> Any:  # noqa: ANN401
+        owner = _owner(name)
+        if owner is None:
+            msg = f"module {__name__!r} has no attribute {name!r}"
+            raise AttributeError(msg)
+        _warn(name, owner)
+        return getattr(owner, name)
+
+    def __setattr__(self, name: str, value: Any) -> None:  # noqa: ANN401
+        owner = _owner(name)
+        if owner is None:
+            super().__setattr__(name, value)
+            return
+        _warn(name, owner)
+        setattr(owner, name, value)
+
+    def __delattr__(self, name: str) -> None:
+        owner = _owner(name)
+        if owner is None:
+            super().__delattr__(name)
+            return
+        _warn(name, owner)
+        delattr(owner, name)
+
+    def __dir__(self) -> list[str]:
+        names = set(super().__dir__())
+        for source in _SOURCES:
+            names.update(vars(source))
+        return sorted(names)
 
 
-def is_equivalent_detection(
-    data: bytes, expected: str | None, detected: str | None
-) -> bool:
-    """Check whether *detected* produces functionally identical text to *expected*.
-
-    Returns ``True`` when:
-
-    1. *detected* is not ``None`` and both encoding names normalize to the same
-       codec, OR
-    2. Decoding *data* with both encodings yields identical strings, OR
-    3. Every differing character pair is functionally equivalent: same base
-       letter after stripping combining marks, or an explicitly listed symbol
-       equivalence (e.g. ¤ ↔ €).
-
-    Returns ``False`` if *detected* is ``None``, either encoding is unknown,
-    or either encoding cannot decode *data*.
-
-    :param data: The raw byte data that was detected.
-    :param expected: The expected encoding name, or ``None`` for binary files.
-    :param detected: The detected encoding name, or ``None``.
-    :returns: ``True`` if decoding with *detected* yields functionally identical
-        text to decoding with *expected*.
-    """
-    if expected is None:
-        return detected is None
-    if detected is None:
-        return False
-
-    norm_exp = normalize_encoding_name(expected)
-    norm_det = normalize_encoding_name(detected)
-
-    if norm_exp == norm_det:
-        return True
-
-    try:
-        text_exp = data.decode(norm_exp)
-        text_det = data.decode(norm_det)
-    except (UnicodeDecodeError, LookupError):
-        return False
-
-    if text_exp == text_det:
-        return True
-
-    if len(text_exp) != len(text_det):
-        return False
-
-    return all(_chars_equivalent(a, b) for a, b in zip(text_exp, text_det, strict=True))
+# Swapping the class is what buys the write-through above: PEP 562's
+# module-level ``__getattr__`` intercepts reads only.
+sys.modules[__name__].__class__ = _EquivalencesShim

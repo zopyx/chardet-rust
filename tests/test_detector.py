@@ -4,7 +4,7 @@ from __future__ import annotations
 import pytest
 
 import chardet
-from chardet import UniversalDetector
+from chardet.detector import UniversalDetector
 from chardet.enums import EncodingEra
 
 
@@ -55,6 +55,36 @@ def test_feed_after_done_is_ignored():
     detector.feed(b"more data")  # Should not raise
     # Buffer should not grow beyond max_bytes
     detector.close()
+
+
+def test_feed_after_an_exact_fill_marks_the_buffer_truncated():
+    """More data after a feed that fills the buffer exactly is a cut, not an end.
+
+    The buffer holds max_bytes exactly, which the pipeline cannot tell from
+    an input that was max_bytes long; only the flag says the tail was cut.
+    Without it the decode-safety flip reads a clipped multi-byte sequence
+    as the end of the caller's data and turns a right utf-8 answer into
+    whichever single-byte codec decodes the fragment.
+    """
+    data = b"Hello \xc3\xa9 more text here"
+    exact = UniversalDetector(max_bytes=7)
+    exact.feed(data[:7])
+    assert exact.done is True
+    exact.feed(data[7:])
+    one_shot = UniversalDetector(max_bytes=7)
+    one_shot.feed(data)
+    exact_result = exact.close()
+    one_shot_result = one_shot.close()
+    assert exact_result == one_shot_result
+    assert exact_result["encoding"] == chardet.detect(data, max_bytes=7)["encoding"]
+
+
+def test_empty_feed_after_done_is_not_a_truncation():
+    """Feeding nothing after the buffer is full cuts nothing off it."""
+    detector = UniversalDetector(max_bytes=5)
+    detector.feed(b"hello")
+    detector.feed(b"")
+    assert detector._input_truncated is False
 
 
 def test_multiple_feeds():
@@ -119,7 +149,7 @@ def test_reset_allows_new_detection():
     detector = UniversalDetector()
     detector.feed(b"\xef\xbb\xbfHello")
     detector.close()
-    assert detector.result["encoding"] == "utf-8-sig"
+    assert detector.result["encoding"] == "UTF-8-SIG"
 
     detector.reset()
     detector.feed("Héllo wörld café".encode())

@@ -33,7 +33,7 @@ fn build_supersets() -> HashMap<String, HashSet<String>> {
     let mut map: HashMap<String, HashSet<String>> = HashMap::new();
 
     let entries: &[(&str, &[&str])] = &[
-        ("ascii", &["utf-8", "windows-1252"]),
+        ("ascii", &["utf-8", "cp1252"]),
         ("tis-620", &["iso-8859-11", "cp874"]),
         ("iso-8859-11", &["cp874"]),
         ("gb2312", &["gb18030"]),
@@ -41,13 +41,13 @@ fn build_supersets() -> HashMap<String, HashSet<String>> {
         ("big5", &["big5hkscs", "cp950"]),
         ("shift_jis", &["cp932", "shift_jis_2004"]),
         ("shift-jisx0213", &["shift_jis_2004"]),
-        ("euc-jp", &["euc-jis-2004"]),
-        ("euc-jisx0213", &["euc-jis-2004"]),
-        ("euc-kr", &["cp949"]),
+        ("euc-jp", &["euc_jis_2004"]),
+        ("euc-jisx0213", &["euc_jis_2004"]),
+        ("euc_kr", &["cp949"]),
         ("cp037", &["cp500", "cp1140"]),
         ("cp1125", &["cp866"]),
         ("cp500", &["cp1140"]),
-        ("cp775", &["windows-1257"]),
+        ("cp775", &["cp1257"]),
         ("cp858", &["cp437", "cp850"]),
         // ISO-2022-JP subsets
         (
@@ -57,18 +57,18 @@ fn build_supersets() -> HashMap<String, HashSet<String>> {
         ("iso-2022-jp-1", &["iso-2022-jp-2", "iso-2022-jp-ext"]),
         ("iso-2022-jp-3", &["iso-2022-jp-2004"]),
         // ISO/Windows superset pairs
-        ("iso-8859-1", &["windows-1252"]),
-        ("iso-8859-2", &["windows-1250"]),
-        ("iso-8859-4", &["windows-1257"]),
-        ("iso-8859-5", &["windows-1251"]),
-        ("iso-8859-6", &["windows-1256"]),
-        ("iso-8859-7", &["windows-1253"]),
-        ("iso-8859-8", &["windows-1255"]),
-        ("iso-8859-9", &["windows-1254"]),
-        ("iso-8859-13", &["windows-1257"]),
-        ("iso-8859-14", &["windows-1252"]),
-        ("iso-8859-15", &["windows-1252"]),
-        ("iso-8859-16", &["windows-1250"]),
+        ("iso8859-1", &["cp1252"]),
+        ("iso8859-2", &["cp1250"]),
+        ("iso8859-4", &["cp1257"]),
+        ("iso8859-5", &["cp1251"]),
+        ("iso8859-6", &["cp1256"]),
+        ("iso8859-7", &["cp1253"]),
+        ("iso8859-8", &["cp1255"]),
+        ("iso8859-9", &["cp1254"]),
+        ("iso8859-13", &["cp1257"]),
+        ("iso8859-14", &["cp1252"]),
+        ("iso8859-15", &["cp1252"]),
+        ("iso8859-16", &["cp1250"]),
     ];
 
     for (subset, supersets) in entries {
@@ -87,16 +87,16 @@ fn build_supersets() -> HashMap<String, HashSet<String>> {
 fn build_preferred_superset() -> HashMap<String, String> {
     let entries: &[(&str, &str)] = &[
         ("ascii", "Windows-1252"),
-        ("euc-kr", "CP949"),
-        ("iso-8859-1", "Windows-1252"),
-        ("iso-8859-2", "Windows-1250"),
-        ("iso-8859-5", "Windows-1251"),
-        ("iso-8859-6", "Windows-1256"),
-        ("iso-8859-7", "Windows-1253"),
-        ("iso-8859-8", "Windows-1255"),
-        ("iso-8859-9", "Windows-1254"),
+        ("euc_kr", "CP949"),
+        ("iso8859-1", "Windows-1252"),
+        ("iso8859-2", "Windows-1250"),
+        ("iso8859-5", "Windows-1251"),
+        ("iso8859-6", "Windows-1256"),
+        ("iso8859-7", "Windows-1253"),
+        ("iso8859-8", "Windows-1255"),
+        ("iso8859-9", "Windows-1254"),
         ("iso-8859-11", "CP874"),
-        ("iso-8859-13", "Windows-1257"),
+        ("iso8859-13", "Windows-1257"),
         ("tis-620", "CP874"),
     ];
 
@@ -332,7 +332,7 @@ mod tests {
     #[test]
     fn test_normalize_encoding_name() {
         assert_eq!(normalize_encoding_name("UTF-8"), "utf8");
-        assert_eq!(normalize_encoding_name("iso-8859-1"), "iso88591");
+        assert_eq!(normalize_encoding_name("iso8859-1"), "iso88591");
         assert_eq!(normalize_encoding_name("Shift_JIS"), "shiftjis");
     }
 
@@ -346,7 +346,7 @@ mod tests {
     fn test_is_correct_superset() {
         // ASCII is subset of UTF-8 and Windows-1252
         assert!(is_correct(Some("ascii"), Some("utf-8")));
-        assert!(is_correct(Some("ascii"), Some("windows-1252")));
+        assert!(is_correct(Some("ascii"), Some("cp1252")));
         // But not the reverse
         assert!(!is_correct(Some("utf-8"), Some("ascii")));
     }
@@ -361,7 +361,7 @@ mod tests {
     #[test]
     fn test_apply_legacy_rename() {
         assert_eq!(apply_legacy_rename("ascii"), "Windows-1252");
-        assert_eq!(apply_legacy_rename("iso-8859-1"), "Windows-1252");
+        assert_eq!(apply_legacy_rename("iso8859-1"), "Windows-1252");
         assert_eq!(apply_legacy_rename("utf-8"), "utf-8"); // No rename
     }
 

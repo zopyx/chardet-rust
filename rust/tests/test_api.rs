@@ -138,7 +138,7 @@ fn test_detect_hz_gb_2312_era_all() {
     // hz-gb-2312 should be detected with EncodingEra.ALL.
     let data = b"Hello ~{CEDE~} World";
     let result = detect_bytes(data, EncodingEra::All, 200_000);
-    assert_eq!(result.encoding, Some("hz-gb-2312".to_string()));
+    assert_eq!(result.encoding, Some("hz".to_string()));
 }
 
 #[test]
@@ -146,7 +146,7 @@ fn test_detect_hz_gb_2312_era_modern_web_skipped() {
     // hz-gb-2312 is WHATWG 'replacement' - should NOT be detected with MODERN_WEB.
     let data = b"Hello ~{CEDE~} World";
     let result = detect_bytes(data, EncodingEra::ModernWeb, 200_000);
-    assert_ne!(result.encoding, Some("hz-gb-2312".to_string()));
+    assert_ne!(result.encoding, Some("hz".to_string()));
 }
 
 #[test]
@@ -154,7 +154,7 @@ fn test_detect_iso_2022_kr_era_all() {
     // iso-2022-kr should be detected with EncodingEra.ALL.
     let data = b"\x1b$)C\x0e\x21\x21\x0f";
     let result = detect_bytes(data, EncodingEra::All, 200_000);
-    assert_eq!(result.encoding, Some("iso-2022-kr".to_string()));
+    assert_eq!(result.encoding, Some("iso2022_kr".to_string()));
 }
 
 #[test]
@@ -162,7 +162,7 @@ fn test_detect_iso_2022_kr_era_modern_web_skipped() {
     // iso-2022-kr is WHATWG 'replacement' - should NOT be detected with MODERN_WEB.
     let data = b"\x1b$)C\x0e\x21\x21\x0f";
     let result = detect_bytes(data, EncodingEra::ModernWeb, 200_000);
-    assert_ne!(result.encoding, Some("iso-2022-kr".to_string()));
+    assert_ne!(result.encoding, Some("iso2022_kr".to_string()));
 }
 
 #[test]

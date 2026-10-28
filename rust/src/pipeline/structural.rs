@@ -23,27 +23,33 @@ use crate::registry::EncodingInfo;
 /// Minimum structural score for CJK candidates to proceed.
 ///
 /// Candidates with scores below this threshold are filtered out.
-pub const CJK_MIN_MB_RATIO: f64 = 0.12;
+pub const CJK_MIN_MB_RATIO: f64 = 0.05;
 
 /// Minimum number of non-ASCII bytes required for CJK analysis.
 ///
 /// Too few high bytes make structural analysis unreliable.
-pub const CJK_MIN_NON_ASCII: usize = 4;
+pub const CJK_MIN_NON_ASCII: usize = 2;
 
 /// Minimum percentage of high bytes that must be in valid sequences.
 ///
 /// Filters out data with many orphaned high bytes.
-pub const CJK_MIN_BYTE_COVERAGE: f64 = 0.55;
+pub const CJK_MIN_BYTE_COVERAGE: f64 = 0.35;
 
 /// Minimum number of distinct lead bytes for diversity check.
 ///
 /// Real CJK text typically uses many different lead bytes.
-pub const CJK_MIN_LEAD_DIVERSITY: usize = 6;
+pub const CJK_MIN_LEAD_DIVERSITY: usize = 4;
 
 /// Threshold for applying the lead diversity check.
 ///
 /// Only check diversity when there are enough high bytes.
 pub const CJK_DIVERSITY_MIN_NON_ASCII: usize = 16;
+
+/// Minimum multi-byte coverage for a high-coverage confidence boost.
+///
+/// When the structural probe covers at least this fraction of high bytes, the
+/// candidate's confidence is boosted instead of merely post-processed.
+pub const HIGH_BYTE_COVERAGE_THRESHOLD: f64 = 0.95;
 
 /// Compute structural score for a multi-byte encoding.
 ///
@@ -78,7 +84,7 @@ pub fn compute_structural_score(
     encoding_info: &EncodingInfo,
     ctx: &mut PipelineContext,
 ) -> f64 {
-    if data.is_empty() || !encoding_info.is_multibyte {
+    if data.is_empty() || !encoding_info.is_multibyte_cjk {
         return 0.0;
     }
 
@@ -107,7 +113,7 @@ pub fn compute_multibyte_byte_coverage(
     ctx: &mut PipelineContext,
     non_ascii_count: Option<usize>,
 ) -> f64 {
-    if data.is_empty() || !encoding_info.is_multibyte {
+    if data.is_empty() || !encoding_info.is_multibyte_cjk {
         return 0.0;
     }
 
@@ -146,7 +152,7 @@ pub fn compute_lead_byte_diversity(
     encoding_info: &EncodingInfo,
     ctx: &mut PipelineContext,
 ) -> usize {
-    if data.is_empty() || !encoding_info.is_multibyte {
+    if data.is_empty() || !encoding_info.is_multibyte_cjk {
         return 0;
     }
 
@@ -193,8 +199,8 @@ fn get_analysis(data: &[u8], name: &str, ctx: &mut PipelineContext) -> Option<(f
 fn analyze_encoding(data: &[u8], name: &str) -> Option<(f64, usize, usize)> {
     match name {
         "shift_jis_2004" | "cp932" => Some(analyze_shift_jis(data)),
-        "euc-jis-2004" | "euc-jp" => Some(analyze_euc_jp(data)),
-        "euc-kr" | "cp949" => Some(analyze_euc_kr(data)),
+        "euc_jis_2004" | "euc-jp" => Some(analyze_euc_jp(data)),
+        "euc_kr" | "cp949" => Some(analyze_euc_kr(data)),
         "gb18030" | "gb2312" | "gbk" => Some(analyze_gb18030(data)),
         "big5hkscs" | "big5" => Some(analyze_big5(data)),
         "johab" => Some(analyze_johab(data)),

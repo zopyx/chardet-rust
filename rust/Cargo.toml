@@ -16,6 +16,7 @@ pyo3 = { version = "0.23", optional = true, features = ["abi3-py310"] }
 once_cell = "1.19"
 encoding_rs = "0.8"
 sha2 = "0.10"
+flate2 = "1.1"
 
 [dev-dependencies]
 rayon = "1.10"

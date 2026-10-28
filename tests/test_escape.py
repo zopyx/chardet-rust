@@ -3,15 +3,23 @@
 
 from __future__ import annotations
 
+import time
+
 from chardet import detect
-from chardet.pipeline.escape import _is_valid_utf7_b64, detect_escape_encoding
+from chardet.pipeline.escape import (
+    _has_valid_hz_regions,
+    _has_valid_utf7_sequences,
+    _is_embedded_in_base64,
+    _is_valid_utf7_b64,
+    detect_escape_encoding,
+)
 
 
 def test_iso_2022_jp_esc_dollar_b() -> None:
     data = b"Hello \x1b$B$3$s$K$A$O\x1b(B World"
     result = detect_escape_encoding(data)
     assert result is not None
-    assert result.encoding == "iso2022-jp-2"
+    assert result.encoding == "iso2022_jp_2"
     assert result.confidence == 0.95
 
 
@@ -19,14 +27,14 @@ def test_iso_2022_jp_esc_dollar_at() -> None:
     data = b"Hello \x1b$@$3$s$K$A$O\x1b(B World"
     result = detect_escape_encoding(data)
     assert result is not None
-    assert result.encoding == "iso2022-jp-2"
+    assert result.encoding == "iso2022_jp_2"
 
 
 def test_iso_2022_kr() -> None:
     data = b"\x1b$)C\x0e\x21\x21\x0f"
     result = detect_escape_encoding(data)
     assert result is not None
-    assert result.encoding == "iso-2022-kr"
+    assert result.encoding == "iso2022_kr"
     assert result.confidence == 0.95
 
 
@@ -34,7 +42,7 @@ def test_hz_gb_2312() -> None:
     data = b"Hello ~{CEDE~} World"
     result = detect_escape_encoding(data)
     assert result is not None
-    assert result.encoding == "hz-gb-2312"
+    assert result.encoding == "hz"
     assert result.confidence == 0.95
 
 
@@ -205,33 +213,82 @@ def test_iso2022_jp_base_returns_jp2() -> None:
     data = b"Hello \x1b$B$3$s$K$A$O\x1b(B World"
     result = detect_escape_encoding(data)
     assert result is not None
-    assert result.encoding == "iso2022-jp-2"
+    assert result.encoding == "iso2022_jp_2"
 
 
 def test_iso2022_jp_2004_codes() -> None:
     """JIS X 0213 escape codes should return iso2022-jp-2004."""
-    # ESC $ ( O designates JIS X 0213 plane 1
-    data = b"\x1b$B$3$s\x1b(B\x1b$(O\x21\x21\x1b(B"
+    # ESC $ ( Q designates JIS X 0213:2004 plane 1
+    data = b"\x1b$B$3$s\x1b(B\x1b$(Q\x21\x21\x1b(B"
     result = detect_escape_encoding(data)
     assert result is not None
-    assert result.encoding == "iso2022-jp-2004"
+    assert result.encoding == "iso2022_jp_2004"
+
+
+def test_iso2022_jp_2004_esc_dollar_paren_q() -> None:
+    """ESC$(Q designates JIS X 0213:2000 plane 1 -> ISO-2022-JP-2004."""
+    data = b"\x1b$B$3$s\x1b(B\x1b$(Q\x21\x21\x1b(B"
+    result = detect_escape_encoding(data)
+    assert result is not None
+    assert result.encoding == "iso2022_jp_2004"
 
 
 def test_iso2022_jp_ext_codes() -> None:
     """Half-width katakana SI/SO should return iso2022-jp-ext."""
-    # ESC $ B for JIS X 0208, then SI (0x0E) / SO (0x0F) for half-width katakana
-    data = b"\x1b$B$3$s\x1b(B\x0e\xb1\xb2\x0f"
+    # ESC $ B for JIS X 0208, then SO (0x0E) / SI (0x0F) around 7-bit
+    # half-width katakana (ISO-2022 streams are 7-bit)
+    data = b"\x1b$B$3$s\x1b(B\x0e\x31\x32\x0f"
     result = detect_escape_encoding(data)
     assert result is not None
-    assert result.encoding == "iso2022-jp-ext"
+    assert result.encoding == "iso2022_jp_ext"
+
+
+def test_iso2022_jp_ext_esc_kana() -> None:
+    """ESC(I (JIS X 0201 Kana designation) should trigger JP-EXT even without SI/SO."""
+    data = b"\x1b$B$3$s\x1b(B\x1b(I\x31\x32\x1b(B"
+    result = detect_escape_encoding(data)
+    assert result is not None
+    assert result.encoding == "iso2022_jp_ext"
+
+
+def test_iso2022_jp_ext_esc_kana_only() -> None:
+    """ESC(I alone (no base sequences, no SI/SO) should detect JP-EXT."""
+    data = b"\x1b(I\x31\x32\x1b(B"
+    result = detect_escape_encoding(data)
+    assert result is not None
+    assert result.encoding == "iso2022_jp_ext"
+
+
+def test_iso2022_jp_jis_x_0212_entry() -> None:
+    """ESC$(D (JIS X 0212-1990) alone should enter the JP branch -> JP-2."""
+    data = b"\x1b$(D\x30\x21\x1b(B"
+    result = detect_escape_encoding(data)
+    assert result is not None
+    assert result.encoding == "iso2022_jp_2"
+
+
+def test_iso2022_jp_2004_without_base() -> None:
+    """JIS X 0213 escape alone (no ESC$B/ESC$@/ESC(J) should detect JP-2004."""
+    data = b"\x1b$(Q\x21\x21\x1b(B"
+    result = detect_escape_encoding(data)
+    assert result is not None
+    assert result.encoding == "iso2022_jp_2004"
 
 
 def test_hz_close_marker_before_open_marker() -> None:
-    """When ~} appears before ~{ but a valid region follows, HZ is still detected."""
+    """A ~} before the first ~{ does not stop the region scan.
+
+    The region validator still finds the GB region after the stray marker.
+    The stage itself answers ``None``, since HZ cannot decode a ``~}`` in
+    ASCII mode and the answer has to decode the window; with the stray
+    tilde escaped as ``~~`` the same text is HZ.
+    """
     data = b"prefix ~} text ~{CEDE~}"
-    result = detect_escape_encoding(data)
+    assert _has_valid_hz_regions(data, len(data), len(data))
+    assert detect_escape_encoding(data) is None
+    result = detect_escape_encoding(b"prefix ~~ text ~{CEDE~}")
     assert result is not None
-    assert result.encoding == "hz-gb-2312"
+    assert result.encoding == "hz"
 
 
 def test_hz_only_close_before_open() -> None:
@@ -246,6 +303,12 @@ def test_utf7_short_base64_rejected() -> None:
     data = b"text +AB- more text"
     result = detect_escape_encoding(data)
     assert result is None
+
+
+def test_utf7_b64_rejects_lone_low_surrogate() -> None:
+    """A low surrogate (0xDC00) without a preceding high surrogate is invalid."""
+    # 0xDC00 in UTF-16BE = DC 00, base64 = "3AA"
+    assert not _is_valid_utf7_b64(b"3AA")
 
 
 def test_utf7_b64_rejects_consecutive_high_surrogates() -> None:
@@ -270,6 +333,44 @@ def test_utf7_b64_accepts_valid_surrogate_pair() -> None:
     """A valid surrogate pair (U+10000 = 0xD800 0xDC00) must be accepted."""
     # 0xD800 0xDC00 encoded as UTF-7 base64
     assert _is_valid_utf7_b64(b"2ADcAA")
+
+
+def test_utf7_rejects_increment_operator() -> None:
+    """++row in C code must not trigger UTF-7 detection (regression #332).
+
+    The ``++`` prefix causes Guard A to skip the first ``+``, but the second
+    ``+`` starts a new candidate sequence with ``row`` as Base64.  ``row``
+    (3 chars) decodes to the valid code point U+AE8C, which previously
+    caused a false positive.
+    """
+    data = b"int f() {\n  int row = 0;\n  ++row;\n}"
+    result = detect_escape_encoding(data)
+    assert result is None
+
+
+def test_utf7_rejects_triple_plus_variable() -> None:
+    """+++i should not trigger UTF-7 — all consecutive pluses must be skipped."""
+    data = b"for (int i = 0; i < n; +++i) {}"
+    result = detect_escape_encoding(data)
+    assert result is None
+
+
+def test_utf7_rejects_double_plus_at_end() -> None:
+    """++ at end of data should not cause issues (Guard A boundary)."""
+    data = b"I love C++"
+    result = detect_escape_encoding(data)
+    assert result is None
+
+
+def test_utf7_rejects_all_lowercase_base64() -> None:
+    """All-lowercase base64 blocks like +foo are variable names, not UTF-7.
+
+    UTF-7 encodes UTF-16BE, so real base64 blocks almost always contain
+    uppercase letters or digits.
+    """
+    data = b"hello +foo world"
+    result = detect_escape_encoding(data)
+    assert result is None
 
 
 def test_utf7_rejects_sha1_git_hash() -> None:
@@ -305,4 +406,91 @@ def test_utf7_rejects_hex_hash_in_requirements_file() -> None:
         b"4bafdea31b1a83b6eff5dac6cedcff073cb984f6\n"
     )
     result = detect(data)
-    assert result["encoding"] != "utf-7"
+    assert result["encoding"] != "UTF-7"
+
+
+def test_embedded_base64_guard_boundary() -> None:
+    """The guard fires at four preceding base64 characters, not three."""
+    assert not _is_embedded_in_base64(b"abc+rest", 3)
+    assert _is_embedded_in_base64(b"abcd+rest", 4)
+    # Newlines are skipped rather than ending the walk, so a line-wrapped
+    # run still counts.
+    assert _is_embedded_in_base64(b"ab\ncd\n+rest", 6)
+    # A non-base64, non-newline byte ends the walk.
+    assert not _is_embedded_in_base64(b"ab cd+rest", 5)
+
+
+def test_utf7_validator_is_linear_in_base64_blobs() -> None:
+    """Line-wrapped base64 must not drive the '+' scan quadratic.
+
+    ``_is_embedded_in_base64`` skips newlines, so without an early exit at
+    the fourth character every '+' in a PEM-shaped blob rescans everything
+    before it.  At 128 KiB that cost 5.4s and grew as the square; the
+    bound below is ~1000x the fixed cost and still catches a relapse.
+    """
+    unit = b"+abc123def456ghi789jkl012mno345pqr678stu901vwx234yz\n"
+    blob = (unit * (131072 // len(unit) + 1))[:131072]
+    start = time.perf_counter()
+    _has_valid_utf7_sequences(blob, len(blob), len(blob))
+    assert time.perf_counter() - start < 1.0
+
+
+def test_utf7_b64_decode_is_linear_in_run_length() -> None:
+    """A long base64 run must not make the UTF-16 decode quadratic.
+
+    The decode loop never trimmed its bit buffer, so it grew to a
+    run-length integer that every sextet shifted again.  ``+A+A...`` is one
+    base64 run of the whole window; 200 KB of it cost 4.7s through
+    ``detect()`` and grew as the square.  The budget is ~10x the linear cost
+    and still catches a relapse.
+    """
+    run = b"A+" * 65536
+    start = time.perf_counter()
+    assert _is_valid_utf7_b64(run)
+    assert time.perf_counter() - start < 1.0
+
+
+def test_utf7_base64_run_outrunning_the_bound_is_skipped() -> None:
+    """A base64 run that reaches max_end while more follows is not judged.
+
+    The run cannot be validated whole, so it must be skipped rather than
+    judged on a truncated prefix (ADR-0006).
+    """
+    data = b"+" + b"AAAA" * 10
+    assert _has_valid_utf7_sequences(data, max_start=10, max_end=5) is False
+
+
+# ---------------------------------------------------------------------------
+# Whole-window gate: a designation is evidence, the decode is the answer
+# ---------------------------------------------------------------------------
+
+
+def test_designation_inside_plain_text_is_not_iso2022() -> None:
+    """Three bytes of a JIS designation in a log line are not ISO-2022-JP."""
+    data = b"log: \x1b$B is the escape\n" + b"plain text " * 50
+    assert detect_escape_encoding(data) is None
+    assert detect(data)["encoding"] != "ISO-2022-JP"
+
+
+def test_iso2022_jp_with_bad_byte_past_header_falls_through() -> None:
+    data = "こんにちは世界".encode("iso-2022-jp") + b" plain " * 50 + b"\x80"
+    assert detect_escape_encoding(data) is None
+    result = detect(data)
+    if result["encoding"] is not None:
+        data.decode(result["encoding"])  # whatever answers must decode
+
+
+def test_iso2022_kr_with_bad_byte_falls_through() -> None:
+    data = b"\x1b$)C" + b"plain " * 50 + b"\x0e\x7f\x7f\x0f"
+    assert detect_escape_encoding(data) is None
+
+
+def test_jis_x0213_2000_designation_falls_through() -> None:
+    """Python's iso2022_jp_2004 codec cannot read ESC $ ( O, so neither can the caller."""
+    data = b"\x1b$(O\x21\x21\x1b(B"
+    assert detect_escape_encoding(data) is None
+
+
+def test_hz_with_stray_tilde_falls_through() -> None:
+    data = "你好世界".encode("hz") + b" ok " * 30 + b" a~b end"
+    assert detect_escape_encoding(data) is None

@@ -1,396 +1,334 @@
-//! Stage 0b: UTF-16/UTF-32 detection for data without BOM.
+//! Stage 1a+: UTF-16/UTF-32 detection for data without a BOM.
 //!
-//! This module detects UTF-16 and UTF-32 encoded text even when no BOM is present.
-//! It analyzes null-byte patterns and validates the resulting codepoints to
-//! distinguish text from binary data.
-//!
-//! # Detection Strategy
-//!
-//! ## UTF-32 Detection
-//! - BE: First two bytes of each 4-byte unit are null for BMP characters
-//! - LE: Last two bytes of each 4-byte unit are null for BMP characters
-//! - Validates codepoints are valid Unicode (<= U+10FFFF)
-//! - Checks that decoded text looks like text (>70% printable)
-//!
-//! ## UTF-16 Detection
-//! - Counts null bytes in even vs odd positions
-//! - ASCII text in UTF-16-LE has nulls at odd positions
-//! - ASCII text in UTF-16-BE has nulls at even positions
-//! - Validates surrogate pairs (no lone surrogates)
+//! This stage runs after BOM detection and before binary detection: UTF-16
+//! and UTF-32 text carries null-byte patterns that would otherwise make the
+//! data look binary.  Mirrors `chardet/pipeline/utf1632.py`.
 
-use super::{DetectionResult, DETERMINISTIC_CONFIDENCE};
-use crate::pipeline::binary;
+use crate::pipeline::{DetectionResult, DETERMINISTIC_CONFIDENCE};
 
-/// Sample size for UTF-16/32 pattern analysis.
-///
-/// We limit analysis to the first 4KB to avoid scanning large files.
+/// How many bytes to sample for pattern analysis.
 const SAMPLE_SIZE: usize = 4096;
 
-/// Minimum bytes needed for reliable UTF-32 detection.
-///
-/// Need at least 4 full code units (16 bytes) for pattern analysis.
+/// Minimum bytes for reliable pattern detection.
 const MIN_BYTES_UTF32: usize = 16;
-
-/// Minimum bytes needed for reliable UTF-16 detection.
-///
-/// Need at least 5 full code units (10 bytes) for pattern analysis.
 const MIN_BYTES_UTF16: usize = 10;
 
-/// Minimum fraction of null bytes in expected positions for UTF-16.
-///
-/// For UTF-16 with ASCII text, we expect null bytes in every other position.
-/// This threshold allows for some non-ASCII characters while still detecting
-/// the encoding.
-const UTF16_MIN_NULL_FRACTION: f64 = 0.10;
-const UTF16_MAX_OPPOSITE_NULL_FRACTION: f64 = 0.25;
-const UTF16_MIN_NULL_FRACTION_DELTA: f64 = 0.05;
+/// Minimum positional null fraction for a UTF-16 candidate.  CJK-heavy text
+/// can have as few as ~4.5% nulls, so the decode-and-quality check carries
+/// the false-positive defence.
+const UTF16_MIN_NULL_FRACTION: f64 = 0.03;
 
-/// Detect UTF-16 or UTF-32 encoding from null-byte patterns.
-///
-/// This function analyzes null-byte distribution to detect UTF-16 and UTF-32
-/// encodings even without a BOM. It also validates that the decoded content
-/// looks like text (not binary data with coincidental patterns).
-///
-/// # Arguments
-///
-/// * `data` - The byte sequence to analyze
-///
-/// # Returns
-///
-/// - `Some(DetectionResult)` with encoding (utf-16-be, utf-16-le, utf-32-be, utf-32-le)
-///   and confidence 0.95 if detected
-/// - `None` if no UTF-16/32 pattern is detected
-///
-/// # Algorithm
-///
-/// 1. Skip binary files (they may have null bytes but shouldn't be detected as text)
-/// 2. Try UTF-32 detection first (more specific pattern)
-/// 3. Fall back to UTF-16 detection
-///
-/// # Examples
-///
-/// ```
-/// use _chardet_rs::pipeline::utf1632::detect_utf1632_patterns;
-///
-/// // UTF-16-LE pattern (ASCII with nulls after each char)
-/// let data: Vec<u8> = b"A\x00B\x00C\x00".to_vec();
-/// let result = detect_utf1632_patterns(&data);
-/// // May detect as UTF-16-LE depending on pattern strength
-///
-/// // Too short
-/// assert!(detect_utf1632_patterns(b"AB").is_none());
-/// ```
+/// Minimum text-quality score when both endiannesses show null patterns.
+const MIN_TEXT_QUALITY: f64 = 0.5;
+
+/// Margin a weaker-null side must win by to override the null pattern.
+const QUALITY_TIE_MARGIN: f64 = 0.05;
+
+/// Minimum printable fraction for a decode to count as text.
+const MIN_PRINTABLE_FRACTION: f64 = 0.7;
+
+/// Positional null fraction below which a null-separator reading is possible.
+const NULL_SEPARATOR_MAX_FRACTION: f64 = 0.75;
+
+/// Bytes allowed besides a null in the null-separator guard: printable ASCII
+/// plus the common whitespace controls.
+fn is_null_separator_allowed(byte: u8) -> bool {
+    byte == 0x00 || (0x20..=0x7E).contains(&byte) || matches!(byte, 0x09 | 0x0A | 0x0C | 0x0D)
+}
+
+fn is_null_separator_pattern(data: &[u8], null_fraction: f64) -> bool {
+    if null_fraction >= NULL_SEPARATOR_MAX_FRACTION {
+        return false;
+    }
+    data.iter().all(|&byte| is_null_separator_allowed(byte))
+}
+
+/// Detect UTF-32 or UTF-16 encoding from null-byte patterns.
 pub fn detect_utf1632_patterns(data: &[u8]) -> Option<DetectionResult> {
     let sample = &data[..data.len().min(SAMPLE_SIZE)];
-
     if sample.len() < MIN_BYTES_UTF16 {
         return None;
     }
 
-    // Skip binary files (GIF, PNG, PDF, etc.) - they may have null bytes
-    // but should not be detected as UTF-16/32
-    if binary::has_binary_signature(sample) {
-        return None;
-    }
-
-    // Check UTF-32 first (more specific pattern)
     if let Some(result) = check_utf32(sample) {
         return Some(result);
     }
-
-    // Then check UTF-16
     check_utf16(sample)
 }
 
-/// Check for UTF-32 encoding patterns.
-///
-/// UTF-32 encodes each character as a 4-byte value. For BMP characters
-/// (U+0000-U+FFFF), this means two null bytes per character.
-///
-/// # Arguments
-///
-/// * `data` - The byte sequence to analyze
-///
-/// # Returns
-///
-/// Detection result if UTF-32 pattern is found and validated.
-///
-/// # UTF-32-BE Detection
-/// - First byte of each 4-byte unit is 0x00 for BMP
-/// - Second byte is often 0x00 for BMP
-///
-/// # UTF-32-LE Detection
-/// - Fourth byte of each 4-byte unit is 0x00 for BMP
-/// - Third byte is often 0x00 for BMP
+/// Decode UTF-16, tolerating a cut final unit and dropping unpaired surrogates.
+#[allow(clippy::chunks_exact_to_as_chunks)] // pairs are read positionally; as_chunks would obscure the surrogate lookahead
+fn decode_utf16_lenient(data: &[u8], big_endian: bool) -> String {
+    let mut out = String::with_capacity(data.len() / 2);
+    let mut units = data.chunks_exact(2);
+    while let Some(unit) = units.next() {
+        let value = if big_endian {
+            u16::from_be_bytes([unit[0], unit[1]])
+        } else {
+            u16::from_le_bytes([unit[0], unit[1]])
+        };
+        if (0xD800..=0xDBFF).contains(&value) {
+            if let Some(low) = units.next() {
+                let low_value = if big_endian {
+                    u16::from_be_bytes([low[0], low[1]])
+                } else {
+                    u16::from_le_bytes([low[0], low[1]])
+                };
+                if (0xDC00..=0xDFFF).contains(&low_value) {
+                    let combined =
+                        0x10000 + (((value as u32) - 0xD800) << 10) + ((low_value as u32) - 0xDC00);
+                    if let Some(ch) = char::from_u32(combined) {
+                        out.push(ch);
+                    }
+                }
+            }
+            continue;
+        }
+        if (0xDC00..=0xDFFF).contains(&value) {
+            continue;
+        }
+        if let Some(ch) = char::from_u32(value as u32) {
+            out.push(ch);
+        }
+    }
+    out
+}
+
+/// Decode UTF-32, dropping out-of-range units.
+fn decode_utf32_lenient(data: &[u8], big_endian: bool) -> Option<String> {
+    let mut out = String::with_capacity(data.len() / 4);
+    for unit in data.as_chunks::<4>().0 {
+        let value = if big_endian {
+            u32::from_be_bytes([unit[0], unit[1], unit[2], unit[3]])
+        } else {
+            u32::from_le_bytes([unit[0], unit[1], unit[2], unit[3]])
+        };
+        {
+            let ch = char::from_u32(value)?;
+            out.push(ch)
+        }
+    }
+    Some(out)
+}
+
 fn check_utf32(data: &[u8]) -> Option<DetectionResult> {
-    // Trim to a multiple of 4 bytes
     let trimmed_len = data.len() - (data.len() % 4);
     if trimmed_len < MIN_BYTES_UTF32 {
         return None;
     }
     let data = &data[..trimmed_len];
-    let num_units = trimmed_len / 4;
+    let units = trimmed_len / 4;
 
-    // UTF-32-BE: first byte of each 4-byte unit must be 0x00
-    let be_first_null: usize = (0..data.len()).step_by(4).filter(|&i| data[i] == 0).count();
-    // Second byte is 0x00 for BMP characters
-    let be_second_null: usize = (0..data.len())
+    let be_first_null = (0..data.len()).step_by(4).filter(|&i| data[i] == 0).count();
+    let be_second_null = (0..data.len())
         .step_by(4)
         .filter(|&i| data[i + 1] == 0)
         .count();
 
-    if be_first_null == num_units && (be_second_null as f64) / (num_units as f64) > 0.5 {
-        // Try to decode as UTF-32-BE
-        let chunks: Vec<u32> = data
-            .chunks_exact(4)
-            .map(|c| {
-                ((c[0] as u32) << 24) | ((c[1] as u32) << 16) | ((c[2] as u32) << 8) | (c[3] as u32)
-            })
-            .collect();
-
-        // Check if all code points are valid Unicode
-        if chunks.iter().all(|&cp| cp <= 0x10FFFF) && looks_like_text(&chunks) {
-            return Some(DetectionResult::new(
-                Some("utf-32-be"),
-                DETERMINISTIC_CONFIDENCE,
-                None,
-            ));
+    if be_first_null == units && (be_second_null as f64) / (units as f64) > 0.5 {
+        if let Some(text) = decode_utf32_lenient(data, true) {
+            if looks_like_text(&text) {
+                return Some(DetectionResult::new(
+                    Some("utf-32-be"),
+                    DETERMINISTIC_CONFIDENCE,
+                    None,
+                ));
+            }
         }
     }
 
-    // UTF-32-LE: last byte of each 4-byte unit must be 0x00
-    let le_last_null: usize = (3..data.len()).step_by(4).filter(|&i| data[i] == 0).count();
-    // Third byte is 0x00 for BMP characters
-    let le_third_null: usize = (2..data.len()).step_by(4).filter(|&i| data[i] == 0).count();
+    let le_last_null = (3..data.len()).step_by(4).filter(|&i| data[i] == 0).count();
+    let le_third_null = (2..data.len()).step_by(4).filter(|&i| data[i] == 0).count();
 
-    if le_last_null == num_units && (le_third_null as f64) / (num_units as f64) > 0.5 {
-        // Try to decode as UTF-32-LE
-        let chunks: Vec<u32> = data
-            .chunks_exact(4)
-            .map(|c| {
-                (c[0] as u32) | ((c[1] as u32) << 8) | ((c[2] as u32) << 16) | ((c[3] as u32) << 24)
-            })
-            .collect();
-
-        // Check if all code points are valid Unicode
-        if chunks.iter().all(|&cp| cp <= 0x10FFFF) && looks_like_text(&chunks) {
-            return Some(DetectionResult::new(
-                Some("utf-32-le"),
-                DETERMINISTIC_CONFIDENCE,
-                None,
-            ));
+    if le_last_null == units && (le_third_null as f64) / (units as f64) > 0.5 {
+        if let Some(text) = decode_utf32_lenient(data, false) {
+            if looks_like_text(&text) {
+                return Some(DetectionResult::new(
+                    Some("utf-32-le"),
+                    DETERMINISTIC_CONFIDENCE,
+                    None,
+                ));
+            }
         }
     }
 
     None
 }
 
-/// Check for UTF-16 encoding patterns.
-///
-/// UTF-16 encodes BMP characters as 2 bytes. For ASCII text, this means
-/// one null byte per character (either before or after the ASCII byte).
-///
-/// # Arguments
-///
-/// * `data` - The byte sequence to analyze
-///
-/// # Returns
-///
-/// Detection result if UTF-16 pattern is found and validated.
-///
-/// # UTF-16-BE Detection
-/// - Null bytes appear at even positions for ASCII text
-/// - Pattern: [0x00, 'A', 0x00, 'B', ...]
-///
-/// # UTF-16-LE Detection
-/// - Null bytes appear at odd positions for ASCII text
-/// - Pattern: ['A', 0x00, 'B', 0x00, ...]
 fn check_utf16(data: &[u8]) -> Option<DetectionResult> {
-    let sample_len = data.len() - (data.len() % 2);
+    let mut sample_len = data.len().min(SAMPLE_SIZE);
+    sample_len -= sample_len % 2;
     if sample_len < MIN_BYTES_UTF16 {
         return None;
     }
-    let data = &data[..sample_len];
-    let num_units = sample_len / 2;
+    let sample = &data[..sample_len];
+    let units = (sample_len / 2) as f64;
 
-    // Count null bytes in even positions (UTF-16-BE high byte for ASCII)
-    let be_null_count: usize = (0..sample_len).step_by(2).filter(|&i| data[i] == 0).count();
-    // Count null bytes in odd positions (UTF-16-LE high byte for ASCII)
-    let le_null_count: usize = (1..sample_len).step_by(2).filter(|&i| data[i] == 0).count();
-
-    let be_frac = be_null_count as f64 / num_units as f64;
-    let le_frac = le_null_count as f64 / num_units as f64;
-
-    let mut candidates: Vec<(&str, f64)> = Vec::new();
-    if le_frac >= UTF16_MIN_NULL_FRACTION
-        && (be_frac <= UTF16_MAX_OPPOSITE_NULL_FRACTION
-            || (le_frac - be_frac) >= UTF16_MIN_NULL_FRACTION_DELTA)
-    {
-        candidates.push(("utf-16-le", le_frac));
-    }
-    if be_frac >= UTF16_MIN_NULL_FRACTION
-        && (le_frac <= UTF16_MAX_OPPOSITE_NULL_FRACTION
-            || (be_frac - le_frac) >= UTF16_MIN_NULL_FRACTION_DELTA)
-    {
-        candidates.push(("utf-16-be", be_frac));
-    }
-
-    if candidates.is_empty() {
-        return None;
-    }
-
-    // If only one candidate, validate and return
-    if candidates.len() == 1 {
-        let (encoding, _) = candidates[0];
-        if validate_utf16(data, encoding == "utf-16-be")
-            && utf16_looks_like_text(data, encoding == "utf-16-be")
-        {
-            return Some(DetectionResult::new(
-                Some(encoding),
-                DETERMINISTIC_CONFIDENCE,
-                None,
-            ));
-        }
-        return None;
-    }
-
-    // Both candidates matched - pick the one with higher null fraction
-    let (best_encoding, _) = if le_frac > be_frac {
-        ("utf-16-le", le_frac)
-    } else {
-        ("utf-16-be", be_frac)
-    };
-
-    if validate_utf16(data, best_encoding == "utf-16-be")
-        && utf16_looks_like_text(data, best_encoding == "utf-16-be")
-    {
-        Some(DetectionResult::new(
-            Some(best_encoding),
-            DETERMINISTIC_CONFIDENCE,
-            None,
-        ))
-    } else {
-        None
-    }
-}
-
-fn utf16_looks_like_text(data: &[u8], is_be: bool) -> bool {
-    let codepoints: Vec<u32> = data
-        .chunks_exact(2)
-        .map(|c| {
-            if is_be {
-                (((c[0] as u16) << 8) | (c[1] as u16)) as u32
-            } else {
-                ((c[0] as u16) | ((c[1] as u16) << 8)) as u32
-            }
-        })
-        .collect();
-
-    looks_like_text(&codepoints)
-}
-
-/// Validate UTF-16 data for proper surrogate pair usage.
-///
-/// # Arguments
-///
-/// * `data` - The byte sequence to validate
-/// * `is_be` - True if big-endian, false if little-endian
-///
-/// # Returns
-///
-/// `true` if the data contains valid UTF-16 sequences:
-/// - No lone surrogates (U+D800-U+DFFF must appear in valid pairs)
-/// - No consecutive high surrogates
-/// - No high surrogate at end without following low surrogate
-fn validate_utf16(data: &[u8], is_be: bool) -> bool {
-    // Decode to 16-bit code units
-    let units: Vec<u16> = data
-        .chunks_exact(2)
-        .map(|c| {
-            if is_be {
-                ((c[0] as u16) << 8) | (c[1] as u16)
-            } else {
-                (c[0] as u16) | ((c[1] as u16) << 8)
-            }
-        })
-        .collect();
-
-    // Check for valid surrogate pairs
-    let mut prev_high = false;
-    for unit in &units {
-        if (0xD800..=0xDBFF).contains(unit) {
-            // High surrogate
-            if prev_high {
-                return false; // Consecutive high surrogates
-            }
-            prev_high = true;
-        } else if (0xDC00..=0xDFFF).contains(unit) {
-            // Low surrogate
-            if !prev_high {
-                return false; // Lone low surrogate
-            }
-            prev_high = false;
-        } else {
-            if prev_high {
-                return false; // High surrogate not followed by low
-            }
-        }
-    }
-
-    !prev_high // Should not end with unpaired high surrogate
-}
-
-/// Check if decoded codepoints look like text.
-///
-/// This heuristic filters out binary data that happens to have valid
-/// UTF-16/32 patterns but doesn't represent text.
-///
-/// # Arguments
-///
-/// * `codepoints` - The decoded Unicode codepoints
-///
-/// # Returns
-///
-/// `true` if more than 70% of codepoints are printable text.
-///
-/// # Excluded Characters
-///
-/// - Control characters (except tab, LF, CR)
-/// - Surrogates (U+D800-U+DFFF)
-/// - Private use areas (U+E000-U+F8FF, etc.)
-fn looks_like_text(codepoints: &[u32]) -> bool {
-    if codepoints.is_empty() {
-        return false;
-    }
-
-    let sample_len = codepoints.len().min(500);
-    let sample = &codepoints[..sample_len];
-
-    let printable: usize = sample
-        .iter()
-        .filter(|&&cp| {
-            // Valid Unicode codepoint
-            if cp > 0x10FFFF {
-                return false;
-            }
-            // Control characters (except common whitespace)
-            if cp < 0x20 && cp != 0x09 && cp != 0x0A && cp != 0x0D {
-                return false;
-            }
-            // High surrogates (invalid standalone)
-            if (0xD800..=0xDFFF).contains(&cp) {
-                return false;
-            }
-            // Private use areas (unlikely to be meaningful text)
-            if (0xE000..=0xF8FF).contains(&cp)
-                || (0xF0000..=0xFFFFD).contains(&cp)
-                || (0x100000..=0x10FFFD).contains(&cp)
-            {
-                return false;
-            }
-            true
-        })
+    let be_null_count = (0..sample_len)
+        .step_by(2)
+        .filter(|&i| sample[i] == 0)
+        .count();
+    let le_null_count = (1..sample_len)
+        .step_by(2)
+        .filter(|&i| sample[i] == 0)
         .count();
 
-    (printable as f64) / (sample_len as f64) > 0.7
+    let be_fraction = be_null_count as f64 / units;
+    let le_fraction = le_null_count as f64 / units;
+
+    let le_qualified =
+        le_fraction >= UTF16_MIN_NULL_FRACTION && !is_null_separator_pattern(sample, le_fraction);
+    let be_qualified =
+        be_fraction >= UTF16_MIN_NULL_FRACTION && !is_null_separator_pattern(sample, be_fraction);
+
+    if !le_qualified && !be_qualified {
+        return None;
+    }
+
+    // Sides are visited in null-signal order; a challenger must win by a clear
+    // margin, so noisy near-ties keep the order the null pattern chose.
+    let mut sides = [
+        ("utf-16-le", le_fraction, le_qualified),
+        ("utf-16-be", be_fraction, be_qualified),
+    ];
+    if be_fraction > le_fraction {
+        sides.reverse();
+    }
+
+    let mut best_encoding: Option<&str> = None;
+    let mut best_quality = -2.0f64;
+    let mut best_qualified = false;
+    let mut viable = 0usize;
+    let mut qualified_side_decoded = false;
+
+    for (encoding, _fraction, qualified) in sides {
+        let text = decode_utf16_lenient(sample, encoding == "utf-16-be");
+        if qualified {
+            qualified_side_decoded = true;
+        }
+        if !looks_like_text(&text) {
+            continue;
+        }
+        viable += 1;
+        let quality = text_quality(&text);
+        let margin = if viable > 1 { QUALITY_TIE_MARGIN } else { 0.0 };
+        if quality > best_quality + margin {
+            best_quality = quality;
+            best_encoding = Some(encoding);
+            best_qualified = qualified;
+        }
+    }
+
+    let encoding = best_encoding?;
+
+    let accepted = if best_qualified {
+        viable == 1 || best_quality >= MIN_TEXT_QUALITY
+    } else {
+        qualified_side_decoded && best_quality >= MIN_TEXT_QUALITY
+    };
+
+    if accepted {
+        return Some(DetectionResult::new(
+            Some(encoding),
+            DETERMINISTIC_CONFIDENCE,
+            None,
+        ));
+    }
+    None
+}
+
+/// Is the decoded sample mostly printable characters?
+fn looks_like_text(text: &str) -> bool {
+    if text.is_empty() {
+        return false;
+    }
+    let sample: Vec<char> = text.chars().take(500).collect();
+    let printable = sample.iter().filter(|&&c| is_printable(c)).count();
+    (printable as f64) / (sample.len() as f64) > MIN_PRINTABLE_FRACTION
+}
+
+/// Approximate Unicode printability, as Python's `str.isprintable` decides it.
+///
+/// Not printable: separator categories (except the ASCII space), control
+/// characters, and code points with no assigned category.  Rust's `char` API
+/// has no general-category lookup, so "assigned" is approximated by the
+/// alphabetic/punctuation/symbol ranges that carry text.
+fn is_printable(c: char) -> bool {
+    if c == ' ' || matches!(c, '\n' | '\r' | '\t') {
+        return true;
+    }
+    if c.is_control() || c.is_whitespace() {
+        return false;
+    }
+    if c.is_alphanumeric() || c.is_ascii_punctuation() {
+        return true;
+    }
+    matches!(
+        c as u32,
+        0x00A0..=0x00BF
+            | 0x2000..=0x2BFF
+            | 0x2E00..=0x2E7F
+            | 0x3000..=0x303F
+            | 0xFE00..=0xFE6F
+            | 0xFF00..=0xFFEF
+    )
+}
+
+/// Approximate Unicode category `M*` for the combining-mark rejection rule.
+fn is_combining_mark(c: char) -> bool {
+    matches!(c as u32,
+        0x0300..=0x036F | 0x0483..=0x0489 | 0x0591..=0x05BD | 0x0610..=0x061A
+        | 0x064B..=0x065F | 0x0670 | 0x06D6..=0x06DC | 0x0900..=0x0903
+        | 0x093A..=0x094F | 0x0951..=0x0957 | 0x0E31 | 0x0E34..=0x0E3A
+        | 0x0E47..=0x0E4E | 0x1AB0..=0x1AFF | 0x1DC0..=0x1DFF | 0x20D0..=0x20F0
+        | 0xFE20..=0xFE2F)
+}
+
+/// Score how much the decoded text looks like real human-readable content.
+///
+/// Base score is the letter ratio; ASCII letters carry an extra 0.5x weight
+/// (the endianness signal), and a whitespace bonus applies to longer samples.
+/// More than 10% control characters or 20% combining marks scores -1.0.
+fn text_quality(text: &str) -> f64 {
+    let sample: Vec<char> = text.chars().take(500).collect();
+    let n = sample.len();
+    if n == 0 {
+        return -1.0;
+    }
+
+    let mut letters = 0usize;
+    let mut marks = 0usize;
+    let mut spaces = 0usize;
+    let mut controls = 0usize;
+    let mut ascii_letters = 0usize;
+
+    for &c in &sample {
+        if c.is_alphabetic() && !is_combining_mark(c) {
+            letters += 1;
+            if (c as u32) < 128 {
+                ascii_letters += 1;
+            }
+        } else if is_combining_mark(c) {
+            marks += 1;
+        } else if c.is_whitespace() {
+            spaces += 1;
+        } else if c.is_control() {
+            controls += 1;
+        }
+    }
+
+    let n_f = n as f64;
+    if (controls as f64) / n_f > 0.1 {
+        return -1.0;
+    }
+    if (marks as f64) / n_f > 0.2 {
+        return -1.0;
+    }
+
+    let mut score = (letters as f64) / n_f;
+    score += ((ascii_letters as f64) / n_f) * 0.5;
+    if n > 20 && spaces > 0 {
+        score += 0.1;
+    }
+    score
 }

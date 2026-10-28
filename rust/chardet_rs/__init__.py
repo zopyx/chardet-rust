@@ -32,14 +32,26 @@ class LanguageFilter(enum.IntFlag):
 
 # Load bigram models at module initialization
 def _init_models():
-    """Load statistical bigram models from models.bin."""
+    """Load the bigram model artifacts from the chardet package."""
     try:
         # Try to load from the chardet package
-        ref = importlib.resources.files("chardet.models").joinpath("models.bin")
+        files = importlib.resources.files("chardet.models")
+        ref = files.joinpath("models.bin")
         if ref.exists():
             data = ref.read_bytes()
             if data:
-                _load_models(data)
+                def _optional(name):
+                    try:
+                        return files.joinpath(name).read_bytes()
+                    except (FileNotFoundError, OSError):
+                        return b""
+
+                _load_models(
+                    data,
+                    _optional("idf.bin"),
+                    _optional("rowmax.bin"),
+                    _optional("langnorm.bin"),
+                )
                 # Log successful model loading if security logging is available
                 try:
                     from chardet.logging import (

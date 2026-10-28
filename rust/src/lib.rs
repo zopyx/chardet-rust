@@ -4,6 +4,7 @@
 
 pub mod bigram_models;
 pub mod detector;
+pub mod encoding_tables;
 pub mod enums;
 pub mod equivalences;
 pub mod equivalences_full;
