@@ -16,6 +16,12 @@ charset-normalizer, at the same encoding accuracy as the reference. Language
 detection is 4.5pp behind the reference; the entire gap is `utf-8-sig`, where
 chardet-rust reports no language at all.
 
+Baselines matter: mypyc (the mypy compiler, which turns annotated Python into C
+extensions) is what `pip install chardet` gives you on CPython. Against the
+pure-Python build of the same reference, used on PyPy and source installs, the
+margin is 16x instead of 2.4x; against chardet 6.0.0 it is ~300x. Details and
+protocol in [docs/performance.rst](docs/performance.rst#baselines).
+
 Reproduce:
 
 ```bash

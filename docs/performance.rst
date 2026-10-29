@@ -104,6 +104,49 @@ faster** than charset-normalizer (mypyc) and **1.7x faster** than cchardet.
 cchardet matches chardet-rust on the median file (0.07ms) but is 2.5x slower at
 p90, and it is 39.6pp behind on accuracy.
 
+Baselines
+---------
+
+A speedup means nothing without the build it was measured against, and chardet
+ships two: mypyc-compiled wheels for CPython (what ``pip install chardet``
+picks up) and a pure-Python build for PyPy and source installs. ``mypyc`` is
+the mypy compiler — it turns annotated Python into C extension modules at build
+time, so the reference's hot loops run as machine code instead of through the
+interpreter.
+
+Same corpus, same machine, one run per detector in its own virtual environment
+(so the absolute times are not comparable with the three-run table above;
+chardet-rust 0.2.1 measures 455ms under this protocol):
+
+.. list-table::
+   :header-rows: 1
+   :widths: 46 16 16
+
+   * - Baseline
+     - Detection
+     - chardet-rust is
+   * - chardet 7.7.0 mypyc (default on CPython)
+     - 1,099ms
+     - **2.4x faster**
+   * - chardet 7.7.0 pure Python (PyPy, source installs)
+     - 7,258ms
+     - **16x faster**
+   * - chardet 6.0.0 (pre-rewrite release, CPython 3.11)
+     - 135,835ms
+     - **300x faster**
+
+mypyc accounts for 6.6x of the reference's own runtime: the same version takes
+7,258ms as pure Python and 1,099ms compiled. That is why the headline figure on
+this page is the 2.3x against the mypyc build — comparing against pure Python
+would credit chardet-rust with a handicap the reference does not have on
+CPython.
+
+Earlier performance notes in this repository quoted 21.9x, 113x and "43x faster
+than chardet 6.0.0". Those came from pure-Python chardet 6.x on 4KB synthetic
+buffers — including the "43x", which is the reference project's own
+mypyc-vs-6.0.0 claim carried over verbatim, not a chardet-rust measurement.
+The tables on this page replace them.
+
 Memory
 ------
 
