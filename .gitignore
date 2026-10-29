@@ -33,3 +33,4 @@ docs/_static/
 docs/_templates/
 docs/api/generated/
 *.so
+wheelhouse/
