@@ -15,21 +15,25 @@ Universal character encoding detector — Rust-powered fork of [chardet 7.0](htt
 > [!NOTE]
 > This Rust port was created to the most part with [Kimi](https://www.kimi.com/) (Kimi 2.5).
 
-## Performance (from upstream chardet 7.0)
+## Performance
 
-**98.1% accuracy** on 2,510 test files. **43x faster** than chardet 6.0.0
-and **6.8x faster** than charset-normalizer. **Language detection** for every result. **LGPL licensed.**
+**99.7% accuracy** on 3,137 test files — the same files the reference chardet
+7.7.0 gets right. **2.3x faster** than chardet 7.7.0 (mypyc), the build
+`pip install chardet` gives you, and **2.8x faster** than charset-normalizer.
+Language detection for every result. LGPL licensed.
 
-|                        | chardet 7.0 (Rust core) | chardet 6.0.0 | [charset-normalizer] |
-| ---------------------- | :----------------------: | :-----------: | :------------------: |
-| Accuracy (2,510 files) |         **98.1%**        |     88.2%     |        78.5%         |
-| Speed                  |       **546 files/s**    |  13 files/s   |      80 files/s      |
-| Language detection     |         **95.1%**        |       --      |          --          |
-| Peak memory            |        **26.2 MiB**      |   29.5 MiB    |      101.2 MiB       |
-| Streaming detection    |          **yes**         |      yes      |          no          |
-| Encoding era filtering |          **yes**         |      no       |          no          |
-| Supported encodings    |            99            |      84       |          99          |
-| License                |           LGPL           |     LGPL      |         MIT          |
+|                              | chardet-rust | chardet 7.7.0 (mypyc) | [charset-normalizer] 3.5.2 | cchardet 3.2.0 |
+| ---------------------------- | :----------: | :-------------------: | :------------------------: | :------------: |
+| Accuracy (3,137 files)       |   **99.7%**  |         99.7%         |           81.7%            |     60.1%      |
+| Speed                        | **4,394/s**  |       1,907/s         |          1,545/s           |    2,614/s     |
+| Median per file              |  **0.07ms**  |        0.23ms         |           0.45ms           |     0.07ms     |
+| Language detection           |   **88.5%**  |         93.0%         |             --             |       --       |
+| RSS after import             |  **193.5MiB**|        157.0MiB       |          248.0MiB          |    181.8MiB    |
+
+Measured on CPython 3.13.9 (macOS aarch64) with
+[`scripts/compare_detectors.py`](scripts/compare_detectors.py). Method,
+runtime distribution and the pure-Python/chardet-6.0.0 baselines are in
+[`docs/performance.rst`](docs/performance.rst).
 
 [charset-normalizer]: https://github.com/jawah/charset_normalizer
 
@@ -40,7 +44,7 @@ pip install chardet-rust
 ```
 
 For source builds (or editable local development), install a Rust toolchain as
-well, because the extension module is built from `rust/` with `maturin`.
+well, because the extension module is built from `rust/` with `setuptools-rust`.
 
 ## Quick Start
 
@@ -96,7 +100,7 @@ chardet uses a multi-stage detection pipeline that progresses from cheap determi
 
 The pipeline includes: BOM detection, UTF-16/32 pattern analysis, escape sequence detection, binary detection, markup charset extraction, ASCII check, UTF-8 validation, byte validity filtering, CJK structural analysis, statistical scoring with bigram models, and post-processing for confusion resolution.
 
-See the [full documentation](https://chardet-rust.readthedocs.io/) for details.
+See the [full documentation](https://chardet.readthedocs.io/) for details.
 
 ### Encoding Era Filtering
 
@@ -140,12 +144,12 @@ cat somefile.txt | chardetect
 - **Rust reimplementation of the detector core** — the full detection pipeline is implemented in `rust/src` and exposed to Python via `chardet_rs._chardet_rs` (PyO3)
 - **Python API compatibility layer** — `detect()`, `detect_all()`, `UniversalDetector`, and `chardetect` keep the familiar chardet API while delegating execution to Rust
 - **12-stage detection pipeline** — BOM detection, structural probing, byte validity filtering, and bigram statistical models are now executed in native code
-- **43x faster** than chardet 6.0.0, **6.8x faster** than charset-normalizer
-- **98.1% accuracy** — +9.9pp vs chardet 6.0.0, +19.6pp vs charset-normalizer
-- **Language detection** — 95.1% accuracy across 49 languages, returned with every result
+- **2.3x faster** than chardet 7.7.0 (mypyc), **2.8x faster** than charset-normalizer
+- **99.7% accuracy** — identical to the reference chardet 7.7.0 file for file, +18.0pp vs charset-normalizer
+- **Language detection** — 88.5% accuracy, returned with every result
 - **99 encodings** — full coverage including EBCDIC, Mac, DOS, and Baltic/Central European families
 - **`EncodingEra` filtering** — scope detection to modern web encodings, legacy ISO/Mac/DOS, mainframe, or all
-- **Thread-safe detection calls** — `detect()` and `detect_all()` are safe to call concurrently; free-threaded execution is covered in CI for Python 3.13t
+- **Thread-safe detection calls** — `detect()` and `detect_all()` are safe to call concurrently; `UniversalDetector` is per-thread
 
 ## License Discussion
 

@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-10-29
+
+Documentation-only release; no code changes. The PyPI project page renders
+`README.md`, and that file still carried the upstream 7.0 figures that the
+benchmark work had already superseded.
+
+### Changed
+
+- `README.md` publishes the measured numbers — 99.7% accuracy on 3,137 files,
+  4,394 files/s, 2.3x chardet 7.7.0 (mypyc) — instead of the inherited
+  "98.1%, 43x faster than chardet 6.0.0, 6.8x faster than
+  charset-normalizer" claims, and drops the free-threaded CI claim, which no
+  longer holds: the job was removed and PyO3 0.23 does not build for
+  free-threaded CPython.
+- `README.md` fixes two stale pointers: the extension is built with
+  `setuptools-rust`, not `maturin`, and the documentation lives at
+  `chardet.readthedocs.io` (`chardet-rust.readthedocs.io` answers 404).
+
 ## [0.2.3] - 2026-10-29
 
 No functional changes. The tree is identical to 0.2.2 apart from this version
@@ -312,6 +330,7 @@ reference pipeline stage for stage, and the reference itself is vendored under
 
 | Version | Release Date | Key Changes |
 |---------|-------------|-------------|
+| 0.2.4 | 2026-10-29 | README carries the measured numbers (PyPI page) |
 | 0.2.3 | 2026-10-29 | No functional changes over 0.2.2 |
 | 0.2.2 | 2026-10-29 | Corrected benchmark harness, re-measured performance numbers |
 | 0.2.1 | 2026-10-29 | 7.7 port released from verified artifacts; Changelog URL |
