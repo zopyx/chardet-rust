@@ -21,9 +21,10 @@ implemented in Rust and exposed to Python via PyO3. Python 3.10+.
    This Rust reimplementation is an AI experiment and is not an official
    upstream replacement.
 
-- **98.1% accuracy** on 2,510 test files
+- **99.7% accuracy** on 3,137 test files
 - **High-performance Rust core** with Python bindings
-- **Language detection** for every result (95.1% accuracy)
+- **1.75x faster** than chardet 7.7.0 (mypyc) on the same corpus
+- **Language detection** for every result (88.5% accuracy)
 - **99 encodings** across six encoding eras
 - **Thread-safe** ``detect()`` and ``detect_all()``
 

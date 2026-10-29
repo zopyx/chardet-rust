@@ -1,337 +1,191 @@
 Performance
 ===========
 
-Benchmarked against 2,510 test files from the
-`chardet test suite <https://github.com/chardet/test-data>`_. All
-detectors evaluated with the same equivalence rules. Numbers below are
-CPython 3.12 unless noted.
+Benchmarked against 3,137 files from the
+`chardet test suite <https://github.com/chardet/test-data>`_, scored with the
+same directional equivalence rules for every detector. All detectors run in
+isolated ``uv`` virtual environments, so no installed package can shadow
+another. Numbers below are chardet-rust 0.2.1 on CPython 3.13.9, macOS
+aarch64 (Apple Silicon).
+
+Reproduce with::
+
+   PYTHONPATH=scripts uv run python scripts/compare_detectors.py \
+       -c 7.7.0 --cn --cchardet --no-cache
 
 Accuracy
 --------
 
 .. list-table::
    :header-rows: 1
-   :widths: 30 15 15 15
+   :widths: 32 12 12 16 14
 
    * - Detector
      - Correct
      - Accuracy
+     - Language
      - Speed
-   * - **chardet 7.0 (mypyc)**
-     - **2463/2510**
-     - **98.1%**
-     - **546 files/s**
-   * - chardet 7.0 (pure)
-     - 2463/2510
-     - 98.1%
-     - 383 files/s
-   * - chardet 6.0.0
-     - 2213/2510
-     - 88.2%
-     - 13 files/s
-   * - charset-normalizer
-     - 1970/2510
-     - 78.5%
-     - 80 files/s
-   * - cchardet
-     - 1405/2510
-     - 56.0%
-     - 2,041 files/s
+   * - **chardet-rust 0.2.1**
+     - **3127/3137**
+     - **99.7%**
+     - **2769/3129 (88.5%)**
+     - **3,581 files/s**
+   * - chardet 7.7.0 (mypyc)
+     - 3127/3137
+     - 99.7%
+     - 2911/3129 (93.0%)
+     - 2,048 files/s
+   * - charset-normalizer 3.5.2 (mypyc)
+     - 2563/3137
+     - 81.7%
+     - not reported
+     - 1,773 files/s
+   * - cchardet 3.2.0 (mypyc)
+     - 1885/3137
+     - 60.1%
+     - not reported
+     - 2,943 files/s
 
-chardet leads all detectors on accuracy: **+9.9pp** vs chardet 6.0.0,
-**+19.6pp** vs charset-normalizer, and **+42.1pp** vs cchardet.
+chardet-rust detects the encoding of every file the reference chardet 7.7.0
+detects: the two agree on all 3,127 correct files and on the same 10 misses.
+Against the alternative detectors the margin is **+18.0pp** over
+charset-normalizer and **+39.6pp** over cchardet.
+
+Language detection trails the reference by 4.5pp (88.5% vs 93.0%). The whole
+gap is a single encoding: chardet-rust reports no language for ``utf-8-sig``
+files (0/151, reference 142/151). Every other encoding matches.
 
 Speed
 -----
 
 .. list-table::
    :header-rows: 1
-   :widths: 30 12 12 12 12 12
+   :widths: 30 12 12 12 12 12 12
 
    * - Detector
-     - Files/s
-     - Mean
-     - Median
-     - p90
-     - p95
-   * - cchardet
-     - 2,041
-     - 0.49ms
-     - 0.04ms
-     - 0.60ms
-     - 0.96ms
-   * - **chardet 7.0 (mypyc)**
-     - **546**
-     - **1.83ms**
-     - **0.55ms**
-     - **3.91ms**
-     - **5.06ms**
-   * - chardet 7.0 (pure)
-     - 383
-     - 2.61ms
-     - 0.94ms
-     - 5.12ms
-     - 6.74ms
-   * - charset-normalizer (mypyc)
-     - 80
-     - 12.47ms
-     - 3.94ms
-     - 35.33ms
-     - 63.83ms
-   * - charset-normalizer (pure)
-     - 55
-     - 18.26ms
-     - 6.21ms
-     - 52.09ms
-     - 94.14ms
-   * - chardet 6.0.0
-     - 13
-     - 79.49ms
-     - 2.24ms
-     - 176.22ms
-     - 362.23ms
-
-With mypyc compilation, chardet 7.0 is **43x faster** than chardet 6.0.0 and
-**6.8x faster** than charset-normalizer (mypyc). Even the pure-Python build is
-**30x faster** than chardet 6.0.0 and **7.0x faster** than charset-normalizer
-(pure). Median time per file is 0.55ms (mypyc) / 0.94ms (pure).
-
-Memory
-------
-
-.. list-table::
-   :header-rows: 1
-   :widths: 30 15 15 15 15
-
-   * - Detector
-     - Import Time
-     - Import Memory
-     - Peak Memory
-     - RSS
-   * - **chardet 7.0**
-     - **0.019s**
-     - **2.7 MiB**
-     - **26.2 MiB**
-     - **115.9 MiB**
-   * - chardet 6.0.0
-     - 0.036s
-     - 13.0 MiB
-     - 29.5 MiB
-     - 123.3 MiB
-   * - charset-normalizer
-     - 0.009s
-     - 1.3 MiB
-     - 101.2 MiB
-     - 323.2 MiB
-   * - cchardet
-     - 0.001s
-     - 23.6 KiB
-     - 27.2 KiB
-     - 81.7 MiB
-
-chardet uses **3.9x less peak memory** than charset-normalizer and
-**2.8x less RSS**.
-
-Language Detection
-------------------
-
-.. list-table::
-   :header-rows: 1
-   :widths: 30 20 20
-
-   * - Detector
-     - Correct
-     - Accuracy
-   * - **chardet 7.0**
-     - **2380/2502**
-     - **95.1%**
-   * - chardet 6.0.0
-     - 0/2502
-     - 0.0%
-   * - charset-normalizer
-     - 0/2502
-     - 0.0%
-   * - cchardet
-     - 0/2502
-     - 0.0%
-
-chardet detects the language for every file. charset-normalizer and cchardet
-do not report language.
-
-Thread Safety
--------------
-
-:func:`chardet.detect` and :func:`chardet.detect_all` are fully thread-safe.
-Each call carries its own state with no shared mutable data between threads.
-Thread safety adds no measurable overhead (< 0.1%).
-
-On free-threaded Python (3.13t+, GIL disabled), detection scales with
-threads:
-
-.. list-table::
-   :header-rows: 1
-   :widths: 20 20 20
-
-   * - Threads
-     - Time
-     - Speedup
-   * - 1
-     - 4,361ms
-     - baseline
-   * - 2
-     - 2,337ms
-     - 1.9x
-   * - 4
-     - 1,930ms
-     - 2.3x
-
-Individual :class:`~chardet.UniversalDetector` instances are not thread-safe.
-Create one instance per thread when using the streaming API.
-
-Optional mypyc Compilation
---------------------------
-
-Prebuilt `mypyc <https://mypyc.readthedocs.io>`_-compiled wheels are
-published to PyPI for CPython on Linux, macOS, and Windows. A regular
-``pip install chardet`` will pick them up automatically — no extra flags
-needed.
-
-.. list-table::
-   :header-rows: 1
-   :widths: 30 20 20
-
-   * - Build
-     - Files/s
-     - Speedup
-   * - Pure Python
-     - 383
-     - baseline
-   * - mypyc compiled
-     - 546
-     - **1.42x**
-
-Pure-Python wheels are always available for PyPy and platforms without
-prebuilt binaries.
-
-Performance Across Python Versions
------------------------------------
-
-Benchmarked chardet 7.0 across all supported Python versions
-(macOS aarch64, 2,510 files, ``encoding_era=ALL``). CPython versions
-install mypyc-compiled wheels automatically; PyPy receives the
-pure-Python wheel.
-
-.. list-table::
-   :header-rows: 1
-   :widths: 16 8 10 10 10 10 10 10
-
-   * - Python
-     - Wheel
      - Total
      - Files/s
      - Mean
      - Median
      - p90
      - p95
-   * - CPython 3.10
-     - mypyc
-     - 4,475ms
-     - 561
-     - 1.78ms
-     - 0.53ms
-     - 3.95ms
-     - 5.09ms
-   * - CPython 3.10
-     - pure
-     - 8,796ms
-     - 285
-     - 3.50ms
-     - 1.22ms
-     - 7.33ms
-     - 9.31ms
-   * - **CPython 3.11**
-     - **mypyc**
-     - **4,079ms**
-     - **615**
-     - **1.63ms**
-     - **0.48ms**
-     - **3.54ms**
-     - **4.60ms**
-   * - CPython 3.11
-     - pure
-     - 6,797ms
-     - 369
-     - 2.71ms
-     - 0.92ms
-     - 5.65ms
-     - 7.41ms
-   * - CPython 3.12
-     - mypyc
-     - 4,597ms
-     - 546
-     - 1.83ms
-     - 0.55ms
-     - 3.91ms
-     - 5.06ms
-   * - CPython 3.12
-     - pure
-     - 6,545ms
-     - 383
-     - 2.61ms
-     - 0.94ms
-     - 5.12ms
-     - 6.74ms
-   * - CPython 3.13
-     - mypyc
-     - 5,046ms
-     - 497
-     - 2.01ms
-     - 0.58ms
-     - 4.32ms
-     - 5.65ms
-   * - CPython 3.13
-     - pure
-     - 9,293ms
-     - 270
-     - 3.70ms
-     - 1.30ms
-     - 7.41ms
-     - 9.66ms
-   * - CPython 3.14
-     - mypyc
-     - 5,064ms
-     - 496
-     - 2.02ms
-     - 0.60ms
-     - 4.39ms
-     - 5.64ms
-   * - CPython 3.14
-     - pure
-     - 6,977ms
-     - 360
-     - 2.78ms
-     - 0.98ms
-     - 5.64ms
-     - 7.32ms
-   * - PyPy 3.10
-     - pure
-     - 6,111ms
-     - 411
-     - 2.43ms
-     - 0.24ms
-     - 4.99ms
-     - 7.43ms
-   * - PyPy 3.11
-     - pure
-     - 6,114ms
-     - 410
-     - 2.44ms
-     - 0.25ms
-     - 4.97ms
-     - 7.33ms
+   * - **chardet-rust 0.2.1**
+     - **876ms**
+     - **3,581**
+     - **0.28ms**
+     - **0.07ms**
+     - **0.57ms**
+     - **0.96ms**
+   * - cchardet 3.2.0 (mypyc)
+     - 1,066ms
+     - 2,943
+     - 0.34ms
+     - 0.06ms
+     - 0.90ms
+     - 1.42ms
+   * - chardet 7.7.0 (mypyc)
+     - 1,532ms
+     - 2,048
+     - 0.49ms
+     - 0.19ms
+     - 0.96ms
+     - 1.48ms
+   * - charset-normalizer 3.5.2 (mypyc)
+     - 1,769ms
+     - 1,773
+     - 0.56ms
+     - 0.38ms
+     - 1.21ms
+     - 1.85ms
 
-**CPython 3.11 + mypyc is the fastest combination** at 615 files/s.
-mypyc provides a 1.4--2.0x speedup across CPython versions. PyPy's JIT
-is competitive with mypyc: pure Python on PyPy (411 files/s) beats every
-pure CPython version and reaches 67--100% of mypyc-compiled CPython
-throughput.
+Detection is **1.75x faster** than chardet 7.7.0 (mypyc), **2.0x faster** than
+charset-normalizer (mypyc) and **1.2x faster** than cchardet. cchardet is
+marginally faster on the median file (0.06ms vs 0.07ms) but about twice as
+slow on the tail, which is where the accuracy-critical large files sit.
+
+Memory
+------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 32 14 14 14 14
+
+   * - Detector
+     - Import Time
+     - Import Memory
+     - Peak Memory
+     - RSS after import
+   * - **chardet-rust 0.2.1**
+     - 0.083s
+     - 5.2 MiB
+     - 5.8 MiB
+     - 194.0 MiB
+   * - chardet 7.7.0 (mypyc)
+     - 0.024s
+     - 2.6 MiB
+     - 29.7 MiB
+     - 157.7 MiB
+   * - cchardet 3.2.0 (mypyc)
+     - 0.004s
+     - 732 KiB
+     - 81.7 MiB
+     - 181.9 MiB
+   * - charset-normalizer 3.5.2 (mypyc)
+     - 0.019s
+     - 2.3 MiB
+     - 88.3 MiB
+     - 248.8 MiB
+
+The Python-side footprint is the smallest of the four (5.2 MiB imported, 5.8
+MiB peak against 29.7 MiB for the reference), but ``tracemalloc`` only counts
+CPython allocations: the Rust bigram tables and their buffers are invisible
+there. On resident memory chardet-rust ends up **36 MiB above** chardet 7.7.0
+because it decodes the model artifacts eagerly at import time — that is also
+why its import takes 0.083s instead of 0.024s. Against charset-normalizer it
+still uses **55 MiB less** RSS.
+
+Language Detection
+------------------
+
+.. list-table::
+   :header-rows: 1
+   :widths: 32 16 14
+
+   * - Detector
+     - Correct
+     - Accuracy
+   * - chardet 7.7.0 (mypyc)
+     - 2911/3129
+     - 93.0%
+   * - **chardet-rust 0.2.1**
+     - **2769/3129**
+     - **88.5%**
+   * - charset-normalizer 3.5.2
+     - not reported
+     - —
+   * - cchardet 3.2.0
+     - not reported
+     - —
+
+chardet-rust returns a language for every detected file. charset-normalizer
+and cchardet do not report one.
+
+Thread Safety
+-------------
+
+:func:`chardet.detect` and :func:`chardet.detect_all` are thread-safe: each
+call owns its state, and ``tests/test_thread_safety.py`` exercises concurrent
+detection. No free-threaded (3.13t) build is published — PyO3 0.23 does not
+support it — so no GIL-disabled scaling numbers are reported here.
+
+Individual :class:`~chardet.UniversalDetector` instances are not thread-safe.
+Create one instance per thread when using the streaming API.
+
+Build
+-----
+
+chardet-rust ships platform wheels containing the compiled Rust extension
+(built with ``setuptools-rust``) for CPython 3.11 and newer; there is no mypyc
+build and no pure-Python fallback with the same performance characteristics.
+Installing from the source distribution compiles the extension with cargo, so
+that path needs a Rust toolchain.
