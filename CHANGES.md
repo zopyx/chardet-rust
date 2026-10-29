@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-10-29
+
+No functional changes. The tree is identical to 0.2.2 apart from this version
+number: 0.2.2 stopped after its TestPyPI verification, so there was nothing to
+fix before the PyPI publication.
+
 ## [0.2.2] - 2026-10-29
 
 The detection engine is unchanged. This release corrects the benchmark harness
@@ -306,6 +312,7 @@ reference pipeline stage for stage, and the reference itself is vendored under
 
 | Version | Release Date | Key Changes |
 |---------|-------------|-------------|
+| 0.2.3 | 2026-10-29 | No functional changes over 0.2.2 |
 | 0.2.2 | 2026-10-29 | Corrected benchmark harness, re-measured performance numbers |
 | 0.2.1 | 2026-10-29 | 7.7 port released from verified artifacts; Changelog URL |
 | 0.2.0 | 2026-10-28 | Detection engine ported to chardet 7.7; Python 3.15 |
