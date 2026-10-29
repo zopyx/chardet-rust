@@ -429,8 +429,12 @@ fn is_valid_utf7_b64(b64_bytes: &[u8]) -> bool {
     // The unused low bits of the last sextet must be zero.
     let padding_bits = total_bits % 16;
     if padding_bits > 0 {
-        let last = base64_decode(b64_bytes[n - 1]).unwrap_or(0);
-        let mask = (1u8 << padding_bits) - 1;
+        let last = u32::from(base64_decode(b64_bytes[n - 1]).unwrap_or(0));
+        // `padding_bits` can reach 14, so the mask does not fit in a u8:
+        // shifting a `u8` there overflows (debug builds panic, release builds
+        // wrap to a 255 mask).  Python's fallback computes it without a width
+        // limit, so mirror that with a u32.
+        let mask = (1u32 << padding_bits) - 1;
         if last & mask != 0 {
             return false;
         }

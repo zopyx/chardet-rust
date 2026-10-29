@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-10-29
+
+### Fixed
+
+- `is_valid_utf7_b64` (`rust/src/pipeline/escape.rs`) built its padding mask as
+  `1u8 << padding_bits`. `padding_bits` is `n * 6 % 16` and reaches 14, so the
+  shift overflows a `u8`: builds with overflow checks abort the interpreter with
+  `pyo3_runtime.PanicException: attempt to shift left with overflow`, and
+  release builds only avoid it because the wrapped `255` mask happens to give
+  the same verdict for a 6-bit sextet. Plain ASCII carrying a `+` followed by a
+  five-character base64 run was enough to trigger it, e.g.
+  `ID|AMOUNT|NAME\n16847+|100|SMITH,+JONES`. The mask is computed in `u32` now,
+  matching the Python fallback, which has no width limit. Covered by
+  `tests/test_github_issues.py::TestEscapeSequences::test_plus_uppercase_word_not_utf7`.
+
+### Added
+
+- Linux wheels for CPython 3.11–3.15 on `x86_64` (`manylinux`). 0.2.4 shipped
+  only `cp313-macosx_11_0_arm64`, so Linux installations fell back to the sdist
+  and needed a Rust toolchain.
+
 ## [0.2.4] - 2026-10-29
 
 Documentation-only release; no code changes. The PyPI project page renders

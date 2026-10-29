@@ -1,6 +1,6 @@
 [package]
 name = "chardet-rs"
-version = "0.2.4"
+version = "0.2.5"
 edition = "2021"
 authors = ["Dan Blanchard <dan.blanchard@gmail.com>"]
 license = "LGPL-2.1-or-later"
