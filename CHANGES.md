@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-29
+
+The detection engine is unchanged. This release corrects the benchmark harness
+that produced the published speed numbers — repository tooling, it is not part
+of the sdist or the wheel — and republishes the numbers that harness distorted.
+
+### Fixed
+
+- `scripts/compare_detectors.py` timed every detector concurrently in a thread
+  pool. The subprocesses are CPU-bound, so each measurement was inflated by the
+  number of detectors in flight and the ratios were meaningless. Timing now
+  runs sequentially.
+- The same script's "old chardet is too slow for three runs" shortcut keyed on
+  `major < 7`, which also matched the local build: chardet-rust reports 0.x, so
+  the detector under test was timed once, cold, and looked roughly twice as
+  slow as it is. The shortcut now applies to chardet 5 and 6 only.
+
+### Changed
+
+- `docs/performance.rst`, `docs/index.rst` and `PERFORMANCE_COMPARISON.md`
+  publish the re-measured comparison: 99.7% encoding accuracy, identical to
+  chardet 7.7.0 file for file, at 4,394 files/s — 2.3x the reference's mypyc
+  build and 2.8x charset-normalizer. A Baselines section adds the pure-Python
+  (16x) and chardet 6.0.0 (300x) figures and marks the inherited
+  21.9x/113x/"43x" claims as superseded.
+- `wheelhouse/`, cibuildwheel's local output directory, is ignored.
+
 ## [0.2.1] - 2026-10-29
 
 First release of the 7.7 port that is published from artifacts verified end to
@@ -279,6 +306,7 @@ reference pipeline stage for stage, and the reference itself is vendored under
 
 | Version | Release Date | Key Changes |
 |---------|-------------|-------------|
+| 0.2.2 | 2026-10-29 | Corrected benchmark harness, re-measured performance numbers |
 | 0.2.1 | 2026-10-29 | 7.7 port released from verified artifacts; Changelog URL |
 | 0.2.0 | 2026-10-28 | Detection engine ported to chardet 7.7; Python 3.15 |
 | 0.1.12 | 2026-03-15 | SEC-020: Consolidated UniversalDetector implementations |
