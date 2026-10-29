@@ -704,7 +704,7 @@ def run_comparison(  # noqa: PLR0913
     data_dir_str = str(data_dir)
     cache_dir = _get_cache_dir() if use_cache else None
 
-    # --- Parallel timing benchmarks ---
+    # --- Timing benchmarks ---
     import_times: dict[str, float] = {}
 
     def _run_timing_for_detector(
@@ -736,11 +736,13 @@ def run_comparison(  # noqa: PLR0913
                     cached["import_time"],
                 )
 
-        # Old chardet (major < 7) gets 1 run (too slow for 3x)
+        # chardet 5/6 from an index get 1 run (too slow for 3x). The rule is
+        # expressed on the version range, not on "major < 7": the local build
+        # reports a 0.x chardet-rust version and must always be timed 3x.
         num_runs = 3
         if detector_type == "chardet" and version != "unknown":
             try:
-                if int(version.split(".")[0]) < 7:
+                if 5 <= int(version.split(".")[0]) < 7:
                     num_runs = 1
             except ValueError:
                 pass
@@ -774,28 +776,25 @@ def run_comparison(  # noqa: PLR0913
 
         return label, results, elapsed, file_times, import_time
 
-    max_workers = max(1, (os.cpu_count() or 2) // 2)
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        futures = {
-            executor.submit(
-                _run_timing_for_detector, label, detector_type, python_exe, era
-            ): label
-            for label, detector_type, python_exe, era in detectors
-        }
-        for future in concurrent.futures.as_completed(futures):
-            label, results, elapsed, file_times, import_time = future.result()
-            stats[label]["time"] = elapsed
-            stats[label]["file_times"] = file_times
-            import_times[label] = import_time
-            for expected, exp_lang, path_str, detected, det_lang in results:
-                _record_result(
-                    stats[label],
-                    expected,
-                    exp_lang,
-                    Path(path_str),
-                    detected,
-                    det_lang,
-                )
+    # Timing is deliberately sequential: the detector subprocesses are
+    # CPU-bound, so running several at once inflates every measurement and
+    # distorts the ratios by the number of detectors in flight.
+    for label, detector_type, python_exe, era in detectors:
+        label, results, elapsed, file_times, import_time = _run_timing_for_detector(
+            label, detector_type, python_exe, era
+        )
+        stats[label]["time"] = elapsed
+        stats[label]["file_times"] = file_times
+        import_times[label] = import_time
+        for expected, exp_lang, path_str, detected, det_lang in results:
+            _record_result(
+                stats[label],
+                expected,
+                exp_lang,
+                Path(path_str),
+                detected,
+                det_lang,
+            )
 
     total = stats[detectors[0][0]]["total"]
 

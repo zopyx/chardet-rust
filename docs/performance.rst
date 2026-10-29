@@ -5,8 +5,9 @@ Benchmarked against 3,137 files from the
 `chardet test suite <https://github.com/chardet/test-data>`_, scored with the
 same directional equivalence rules for every detector. All detectors run in
 isolated ``uv`` virtual environments, so no installed package can shadow
-another. Numbers below are chardet-rust 0.2.1 on CPython 3.13.9, macOS
-aarch64 (Apple Silicon).
+another, and each detector is timed three times in sequence — never in parallel
+with another detector, which would inflate every measurement. Numbers below are
+chardet-rust 0.2.1 on CPython 3.13.9, macOS aarch64 (Apple Silicon).
 
 Reproduce with::
 
@@ -29,22 +30,22 @@ Accuracy
      - **3127/3137**
      - **99.7%**
      - **2769/3129 (88.5%)**
-     - **3,581 files/s**
+     - **4,394 files/s**
    * - chardet 7.7.0 (mypyc)
      - 3127/3137
      - 99.7%
      - 2911/3129 (93.0%)
-     - 2,048 files/s
+     - 1,907 files/s
    * - charset-normalizer 3.5.2 (mypyc)
      - 2563/3137
      - 81.7%
      - not reported
-     - 1,773 files/s
+     - 1,545 files/s
    * - cchardet 3.2.0 (mypyc)
      - 1885/3137
      - 60.1%
      - not reported
-     - 2,943 files/s
+     - 2,614 files/s
 
 chardet-rust detects the encoding of every file the reference chardet 7.7.0
 detects: the two agree on all 3,127 correct files and on the same 10 misses.
@@ -70,38 +71,38 @@ Speed
      - p90
      - p95
    * - **chardet-rust 0.2.1**
-     - **876ms**
-     - **3,581**
-     - **0.28ms**
+     - **714ms**
+     - **4,394**
+     - **0.23ms**
      - **0.07ms**
-     - **0.57ms**
-     - **0.96ms**
+     - **0.42ms**
+     - **0.66ms**
    * - cchardet 3.2.0 (mypyc)
-     - 1,066ms
-     - 2,943
-     - 0.34ms
-     - 0.06ms
-     - 0.90ms
-     - 1.42ms
-   * - chardet 7.7.0 (mypyc)
-     - 1,532ms
-     - 2,048
-     - 0.49ms
-     - 0.19ms
-     - 0.96ms
-     - 1.48ms
-   * - charset-normalizer 3.5.2 (mypyc)
-     - 1,769ms
-     - 1,773
-     - 0.56ms
+     - 1,200ms
+     - 2,614
      - 0.38ms
-     - 1.21ms
-     - 1.85ms
+     - 0.07ms
+     - 1.07ms
+     - 1.58ms
+   * - chardet 7.7.0 (mypyc)
+     - 1,645ms
+     - 1,907
+     - 0.52ms
+     - 0.23ms
+     - 0.95ms
+     - 1.37ms
+   * - charset-normalizer 3.5.2 (mypyc)
+     - 2,030ms
+     - 1,545
+     - 0.65ms
+     - 0.45ms
+     - 1.40ms
+     - 2.17ms
 
-Detection is **1.75x faster** than chardet 7.7.0 (mypyc), **2.0x faster** than
-charset-normalizer (mypyc) and **1.2x faster** than cchardet. cchardet is
-marginally faster on the median file (0.06ms vs 0.07ms) but about twice as
-slow on the tail, which is where the accuracy-critical large files sit.
+Detection is **2.3x faster** than the reference chardet 7.7.0 (mypyc), **2.8x
+faster** than charset-normalizer (mypyc) and **1.7x faster** than cchardet.
+cchardet matches chardet-rust on the median file (0.07ms) but is 2.5x slower at
+p90, and it is 39.6pp behind on accuracy.
 
 Memory
 ------
@@ -116,32 +117,32 @@ Memory
      - Peak Memory
      - RSS after import
    * - **chardet-rust 0.2.1**
-     - 0.083s
+     - 0.066s
      - 5.2 MiB
      - 5.8 MiB
-     - 194.0 MiB
+     - 193.5 MiB
    * - chardet 7.7.0 (mypyc)
-     - 0.024s
+     - 0.021s
      - 2.6 MiB
      - 29.7 MiB
-     - 157.7 MiB
+     - 157.0 MiB
    * - cchardet 3.2.0 (mypyc)
-     - 0.004s
+     - 0.005s
      - 732 KiB
      - 81.7 MiB
-     - 181.9 MiB
+     - 181.8 MiB
    * - charset-normalizer 3.5.2 (mypyc)
-     - 0.019s
+     - 0.014s
      - 2.3 MiB
      - 88.3 MiB
-     - 248.8 MiB
+     - 248.0 MiB
 
 The Python-side footprint is the smallest of the four (5.2 MiB imported, 5.8
 MiB peak against 29.7 MiB for the reference), but ``tracemalloc`` only counts
 CPython allocations: the Rust bigram tables and their buffers are invisible
 there. On resident memory chardet-rust ends up **36 MiB above** chardet 7.7.0
 because it decodes the model artifacts eagerly at import time — that is also
-why its import takes 0.083s instead of 0.024s. Against charset-normalizer it
+why its import takes 0.066s instead of 0.021s. Against charset-normalizer it
 still uses **55 MiB less** RSS.
 
 Language Detection

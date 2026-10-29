@@ -23,7 +23,7 @@ implemented in Rust and exposed to Python via PyO3. Python 3.10+.
 
 - **99.7% accuracy** on 3,137 test files
 - **High-performance Rust core** with Python bindings
-- **1.75x faster** than chardet 7.7.0 (mypyc) on the same corpus
+- **2.3x faster** than chardet 7.7.0 (mypyc) on the same corpus
 - **Language detection** for every result (88.5% accuracy)
 - **99 encodings** across six encoding eras
 - **Thread-safe** ``detect()`` and ``detect_all()``

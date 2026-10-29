@@ -6,12 +6,12 @@ aarch64). Full tables, method and caveats: **[docs/performance.rst](docs/perform
 
 | Detector | Encoding accuracy | Language | Files/s | Median | RSS after import |
 |---|---|---|---|---|---|
-| **chardet-rust 0.2.1** | **99.7%** | **88.5%** | **3,581** | **0.07ms** | 194.0 MiB |
-| chardet 7.7.0 (mypyc) | 99.7% | 93.0% | 2,048 | 0.19ms | 157.7 MiB |
-| charset-normalizer 3.5.2 (mypyc) | 81.7% | — | 1,773 | 0.38ms | 248.8 MiB |
-| cchardet 3.2.0 (mypyc) | 60.1% | — | 2,943 | 0.06ms | 181.9 MiB |
+| **chardet-rust 0.2.1** | **99.7%** | **88.5%** | **4,394** | **0.07ms** | 193.5 MiB |
+| chardet 7.7.0 (mypyc) | 99.7% | 93.0% | 1,907 | 0.23ms | 157.0 MiB |
+| cchardet 3.2.0 (mypyc) | 60.1% | — | 2,614 | 0.07ms | 181.8 MiB |
+| charset-normalizer 3.5.2 (mypyc) | 81.7% | — | 1,545 | 0.45ms | 248.0 MiB |
 
-Detection is 1.75x faster than chardet 7.7.0 (mypyc) and 2.0x faster than
+Detection is 2.3x faster than chardet 7.7.0 (mypyc) and 2.8x faster than
 charset-normalizer, at the same encoding accuracy as the reference. Language
 detection is 4.5pp behind the reference; the entire gap is `utf-8-sig`, where
 chardet-rust reports no language at all.
