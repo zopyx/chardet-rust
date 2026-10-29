@@ -14,7 +14,13 @@ from chardet_rs._chardet_rs import UniversalDetector as _UniversalDetectorRs
 from chardet_rs._chardet_rs import detect as _detect_rs
 from chardet_rs._chardet_rs import detect_all as _detect_all_rs
 
-__version__ = "7.0.0"
+try:
+    from importlib.metadata import PackageNotFoundError as _PackageNotFoundError
+    from importlib.metadata import version as _dist_version
+
+    __version__ = _dist_version("chardet-rust")
+except _PackageNotFoundError:  # pragma: no cover - only when run uninstalled
+    __version__ = "0.0.0"
 
 
 class LanguageFilter(enum.IntFlag):

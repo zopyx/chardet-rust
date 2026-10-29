@@ -14,7 +14,13 @@ from chardet_rs._chardet_rs import UniversalDetector as _UniversalDetectorRs
 from chardet_rs._chardet_rs import detect as _detect_rs
 from chardet_rs._chardet_rs import detect_all as _detect_all_rs
 
-__version__ = "7.0.0"
+try:
+    from importlib.metadata import PackageNotFoundError as _PackageNotFoundError
+    from importlib.metadata import version as _dist_version
+
+    __version__ = _dist_version("chardet-rust")
+except _PackageNotFoundError:  # pragma: no cover - only when run uninstalled
+    __version__ = "0.0.0"
 
 
 class LanguageFilter(enum.IntFlag):
@@ -32,34 +38,66 @@ class LanguageFilter(enum.IntFlag):
 
 # Load bigram models at module initialization
 def _init_models():
-    """Load statistical bigram models from models.bin."""
+    """Load the bigram model artifacts from the chardet package."""
     try:
         # Try to load from the chardet package
-        ref = importlib.resources.files("chardet.models").joinpath("models.bin")
+        files = importlib.resources.files("chardet.models")
+        ref = files.joinpath("models.bin")
         if ref.exists():
             data = ref.read_bytes()
             if data:
-                _load_models(data)
-                return True
-    except (OSError, ImportError) as e:
-        # Models are optional - log error for debugging but don't fail
-        # OSError: file access errors
-        # ImportError: package import failures
-        import warnings
+                def _optional(name):
+                    try:
+                        return files.joinpath(name).read_bytes()
+                    except (FileNotFoundError, OSError):
+                        return b""
 
-        warnings.warn(
-            f"Failed to load bigram models: {e}", RuntimeWarning, stacklevel=2
-        )
+                _load_models(
+                    data,
+                    _optional("idf.bin"),
+                    _optional("rowmax.bin"),
+                    _optional("langnorm.bin"),
+                )
+                # Log successful model loading if security logging is available
+                try:
+                    from chardet.logging import (
+                        SecurityEventType,
+                        log_model_event,
+                    )
 
-    return False
+                    log_model_event(
+                        SecurityEventType.MODEL_LOADED_SUCCESSFULLY,
+                        "Bigram models loaded successfully",
+                        details={"source": "chardet.models", "size_bytes": len(data)},
+                    )
+                except ImportError:
+                    pass  # Logging is optional
+                return
+    except (ImportError, OSError, ValueError, AttributeError) as e:
+        # ImportError: chardet.models not available
+        # OSError: file system errors reading models.bin
+        # ValueError: invalid data in models.bin
+        # AttributeError: importlib.resources.files() issues
+        # Log the failure if security logging is available
+        try:
+            from chardet.logging import SecurityEventType, log_model_event
 
+            log_model_event(
+                SecurityEventType.MODEL_LOAD_FAILED,
+                f"Failed to load bigram models: {type(e).__name__}",
+                details={"error_type": type(e).__name__},
+            )
+        except ImportError:
+            pass  # Logging is optional
+
+    # If models aren't available, warn but continue
+    # The implementation will fall back to simplified scoring
+
+
+_init_models()
 
 DEFAULT_MAX_BYTES: int = 200_000
 MINIMUM_THRESHOLD: float = 0.20
-
-# Initialize models (optional - fall back to simplified scoring if not available)
-# This must be done after all module-level constants are defined
-_init_models()
 
 
 class DetectionDict(dict):

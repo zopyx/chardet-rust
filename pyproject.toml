@@ -1,6 +1,6 @@
 [project]
 name = "chardet-rust"
-version = "0.1.12"
+version = "0.2.1"
 description = "Universal character encoding detector"
 license = "LGPL-2.1-or-later"
 readme = "README.md"
@@ -33,7 +33,7 @@ Homepage = "https://github.com/zopyx/chardet-rust"
 Repository = "https://github.com/zopyx/chardet-rust"
 "Bug Tracker" = "https://github.com/zopyx/chardet-rust/issues"
 Documentation = "https://chardet.readthedocs.io"
-Changelog = "https://chardet.readthedocs.io/en/latest/changelog.html"
+Changelog = "https://github.com/zopyx/chardet-rust/blob/main/CHANGES.md"
 
 [project.scripts]
 chardetect = "chardet.cli:main"

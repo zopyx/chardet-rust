@@ -7,6 +7,91 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-29
+
+First release of the 7.7 port that is published from artifacts verified end to
+end: sdist and wheel are built from a clean tree, `twine check` passes, and both
+install into an empty environment. Detection behaviour is unchanged from 0.2.0,
+which was uploaded to TestPyPI only.
+
+### Changed
+
+- The `Changelog` project URL points at this file instead of the vendored
+  reference's documentation page.
+
+## [0.2.0] - 2026-10-28
+
+Detection engine ported to chardet 7.7. The Rust core now reproduces the
+reference pipeline stage for stage, and the reference itself is vendored under
+`src/chardet` so the Python-facing surface and its tests keep working.
+
+### Added
+
+- Rust ports of the escape stage (ISO-2022, HZ-GB2312, UTF-7 with the RFC 2152
+  padding/surrogate guards and the whole-window decode gate), the magic-number
+  stage, UTF-16/32 null-pattern detection, markup declarations (including the
+  cp037 scan for EBCDIC markup and PEP 263 cookies), language fill, the
+  postprocess rank corrections and confusion arbitration.
+- Generated lookup tables instead of hand-maintained ones: the encoding
+  registry, the codec-alias table, per-encoding case/category/code-point tables,
+  the cp037 page, and per-encoding byte-pair grammars. They exist because
+  `encoding_rs` follows the WHATWG mappings — its `shift_jis` is CP932 — while
+  the reference asks the Python codec, so validity checks needed the codecs'
+  own answers. Regenerate with `scripts/gen_encoding_tables.py` and
+  `scripts/gen_codec_aliases.py`.
+- `scripts/rust_parity.py` for Rust-vs-reference parity runs over the corpus.
+- Python 3.15 support (the abi3 extension runs unchanged; verified on 3.15.2).
+- `chardet._version`, tracked in-tree: the vendored package imports it and
+  setuptools does not generate it.
+
+### Changed
+
+- `src/chardet` is now the vendored chardet 7.7 reference implementation. The
+  public API routes detection through the Rust pipeline in `chardet._request`,
+  while the Python pipeline stays available for the internals tests.
+- `chardet.__version__` and `chardet_rs.__version__` report the installed
+  distribution version instead of separate hard-coded numbers.
+- `chardet.UniversalDetector` keeps the reference's fallback semantics: an
+  excluded fallback encoding warns at the caller's frame.
+
+### Fixed
+
+- `mime_type` survived no stage rebuild, so declared HTML pages came back as
+  `text/plain`; the language fill, postprocess and confusion stages now carry it.
+- UTF-7 was claimed for plain ASCII (`+/v8` diffs, `+row`, `+100`): the marker,
+  the base64 padding bits, embedded-base64 and script-range guards are all
+  enforced again, and the whole window must decode.
+- Null-separated ASCII (`find -print0` output) was classified as binary, and a
+  window cut mid-sequence was not treated as valid UTF-8.
+- The CJK gate used thresholds that dropped two-byte CJK input entirely; the
+  reference's 0.05/2/0.35/4 values are in place.
+- Decode-safety: a winner that cannot decode the caller's input (a trailing
+  cut sequence, `mam\xe1`) now yields to a rival that can.
+- Niche-Latin demotion arbitrated on the full table difference instead of the
+  reference's curated byte sets, so `hp-roman8` won ties it should have lost.
+- EBCDIC text with HT/NL whitespace was classified as binary.
+- The packaged `chardet_rs` wrapper (`src/chardet_rs/__init__.py`) had drifted
+  from the copy the tests import (`rust/chardet_rs/__init__.py`) and called
+  `_load_models` with one argument, so an installed wheel raised `TypeError` on
+  `import chardet`. The shipped module now matches the tested one.
+
+### Removed
+
+- `chardet._fallback` and `chardet.universal_detector`: dead leftovers of the
+  previous implementation (`_fallback` no longer imported at all, nothing
+  referenced either module).
+
+### Build and CI
+
+- Version the generated Rust tables and `chardet._version`; `.gitignore` had
+  swallowed them, so a clean checkout could not compile the crate.
+- The sdist carries `rust/src/data/*.bin`, without which it cannot build, and
+  `src/chardet/models/models.bin.sha256`, which `bigram_models.rs` includes: a
+  wheel built from the sdist failed at compile time without it.
+- CI: dropped the free-threaded job (PyO3 0.23 does not build for free-threaded
+  CPython below 3.14), added 3.15 to the matrix, and the test job no longer
+  syncs the dev group's data tooling.
+
 ## [0.1.12] - 2026-03-15
 
 ### Security
@@ -194,6 +279,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Release Date | Key Changes |
 |---------|-------------|-------------|
+| 0.2.1 | 2026-10-29 | 7.7 port released from verified artifacts; Changelog URL |
+| 0.2.0 | 2026-10-28 | Detection engine ported to chardet 7.7; Python 3.15 |
 | 0.1.12 | 2026-03-15 | SEC-020: Consolidated UniversalDetector implementations |
 | 0.1.11 | 2026-03-15 | Security audit, input validation, exception hierarchy |
 | 0.1.10 | 2026-03-15 | Security hardening |
